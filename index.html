@@ -1,0 +1,1658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stat Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'IBM Plex Sans', sans-serif; background: #0a0a0a; color: #e8e8e8; padding: 0; min-width: 960px; }
+
+  .nav { display: flex; align-items: center; gap: 4px; padding: 16px 24px 0; border-bottom: 1px solid #222; background: #0d0d0d; }
+  .nav-tab { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; padding: 8px 18px; border-radius: 6px 6px 0 0; cursor: pointer; color: #fff; border: 1px solid transparent; border-bottom: none; transition: all 0.15s; letter-spacing: 0.04em; background: transparent; user-select: none; }
+  .nav-tab:hover { color: #aaa; }
+  .nav-tab.active { color: #fff; background: #0a0a0a; border-color: #222; border-bottom: 1px solid #0a0a0a; margin-bottom: -1px; }
+  .nav-tab.tab-drops.active { color: #5fa8e8; }
+  .nav-tab.tab-accounts.active { color: #a78bfa; }
+  .nav-tab.tab-analytics.active { color: #4ade80; }
+  .nav-tab.tab-welcome.active { color: #fbbf24; }
+  .nav-tab.tab-updates.active { color: #f87171; }
+
+  .page { display: none; padding: 24px; }
+  .page.active { display: block; }
+
+  .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #222; }
+  .title { font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600; letter-spacing: -0.5px; color: #fff; }
+  .subtitle-line { font-size: 11px; color: #fff; margin-top: 3px; font-family: 'IBM Plex Mono', monospace; }
+  .header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+  .autosave-indicator { font-family: 'IBM Plex Mono', monospace; font-size: 10px; padding: 4px 10px; border-radius: 4px; letter-spacing: 0.04em; text-transform: uppercase; transition: all 0.2s; background: #0f3320; color: #4ade80; border: 1px solid #1a5030; margin-right: 4px; }
+  .autosave-indicator.saving { background: #1a1600; color: #fbbf24; border-color: #3a3000; }
+  .autosave-indicator.error { background: #2a1010; color: #f87171; border-color: #4a1a1a; }
+  .autosave-indicator::before { content: "● "; }
+
+  select, input[type="text"], input[type="date"], input[type="number"] { background: #141414; border: 1px solid #2a2a2a; color: #e8e8e8; font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 6px 10px; border-radius: 4px; outline: none; }
+  select:focus, input:focus { border-color: #fff; }
+
+  .btn { background: #1a1a1a; border: 1px solid #333; color: #e8e8e8; font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 6px 14px; border-radius: 4px; cursor: pointer; transition: all 0.15s; letter-spacing: 0.03em; white-space: nowrap; }
+  .btn:hover { background: #252525; border-color: #fff; }
+  .btn.primary { background: #1c3a5e; border-color: #2a5a8a; color: #7ab8f5; }
+  .btn.primary:hover { background: #1e4268; }
+  .btn.danger { background: #2a1010; border-color: #4a1a1a; color: #f87171; }
+  .btn.danger:hover { background: #3a1515; }
+  .btn.edit-off { background: #2a2000; border-color: #5a4500; color: #fbbf24; }
+  .btn.edit-off:hover { background: #3a2d00; }
+  .btn.edit-on { background: #1a3a1a; border-color: #2a5a2a; color: #4ade80; }
+  .btn.edit-on:hover { background: #1e4a1e; }
+  .btn.purple { background: #1a1a2a; border-color: #2a2a5a; color: #a78bfa; }
+  .btn.purple:hover { background: #202040; }
+
+  .drop-label { font-size: 11px; color: #fff; font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .edit-mode-banner { display: none; align-items: center; gap: 8px; background: #1a1600; border: 1px solid #3a3000; border-radius: 4px; padding: 6px 12px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #fbbf24; margin-bottom: 14px; }
+  .edit-mode-banner.visible { display: flex; }
+  .edit-mode-banner::before { content: "●"; animation: blink 1s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .stats-bar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 24px; }
+  .stat-card { background: #111; border: 1px solid #222; border-radius: 6px; padding: 12px 14px; }
+  .stat-label { font-size: 10px; color: #fff; font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .stat-value { font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600; color: #fff; }
+  .stat-sub { font-size: 10px; color: #fff; margin-top: 3px; font-family: 'IBM Plex Mono', monospace; }
+  .stat-value.green { color: #4ade80; }
+  .stat-value.yellow { color: #fbbf24; }
+  .stat-value.purple { color: #a78bfa; }
+  .stat-value.blue { color: #5fa8e8; }
+
+  .section-header { display: flex; align-items: baseline; gap: 10px; margin: 32px 0 10px; }
+  .section-title { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+  .section-title.refract { color: #5fa8e8; }
+  .section-title.shikari { color: #a78bfa; }
+  .section-sub { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #fff; }
+
+  .table-wrap { background: #0d0d0d; border: 1px solid #222; border-radius: 8px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: #131313; border-bottom: 1px solid #222; }
+  th { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: #ccc; text-transform: uppercase; letter-spacing: 0.06em; padding: 10px 14px; text-align: left; white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid #181818; transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #141414; }
+  td { padding: 10px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #ddd; white-space: nowrap; }
+
+  .section-me { border-left: 2px solid #1a4570; }
+  .section-aco { border-left: 2px solid #1a5030; }
+  .section-shi { border-left: 2px solid #3d2a6e; }
+
+  input.num-input { background: transparent; border: none; border-bottom: 1px solid transparent; color: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; width: 40px; padding: 2px; outline: none; border-radius: 0; pointer-events: none; }
+  body.em input.num-input { pointer-events: all; border-bottom: 1px solid #3a3a00; background: #1a1800; color: #fbbf24; cursor: text; }
+  body.em input.num-input:focus { border-bottom-color: #fbbf24; background: #221f00; }
+
+  input.cell-input { background: transparent; border: none; border-bottom: 1px solid #333; color: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 13px; width: 90px; padding: 2px 4px; outline: none; border-radius: 0; }
+  input.cell-input:focus { border-bottom-color: #4a9eff; background: #0f1f35; }
+  input.cell-input::placeholder { color: #555; }
+
+  input.setup-input { background: transparent; border: none; border-bottom: 1px solid transparent; color: #ddd; font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 2px 4px; outline: none; border-radius: 0; pointer-events: none; }
+  body.em input.setup-input { pointer-events: all; border-bottom: 1px solid #3a3a00; background: #1a1800; color: #fbbf24; cursor: text; }
+  body.em input.setup-input:focus { border-bottom-color: #fbbf24; background: #221f00; }
+
+  select.setup-select { background: transparent; border: none; border-bottom: 1px solid transparent; color: #ddd; font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 2px 4px; outline: none; pointer-events: none; appearance: none; -webkit-appearance: none; cursor: default; }
+  body.em select.setup-select { pointer-events: all; border-bottom: 1px solid #3a3a00; background: #1a1800; color: #fbbf24; cursor: pointer; appearance: auto; -webkit-appearance: auto; }
+
+  select.acct-select { background: #141414; border: 1px solid #2a2a2a; color: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 3px 8px; border-radius: 4px; outline: none; cursor: pointer; max-width: 160px; }
+  select.acct-select:focus { border-color: #fff; }
+
+  .del-row-btn { display: none; background: transparent; border: none; color: #555; font-size: 14px; cursor: pointer; padding: 0 4px; font-family: monospace; transition: color 0.1s; }
+  .del-row-btn:hover { color: #f87171; }
+  body.em .del-row-btn { display: inline; }
+
+  .add-row-btn { display: none; width: 100%; background: #111; border: none; border-top: 1px dashed #222; color: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 10px; cursor: pointer; transition: all 0.15s; text-align: center; }
+  .add-row-btn:hover { color: #fbbf24; background: #141400; }
+  body.em .add-row-btn { display: block; }
+
+  .hit-rate { font-weight: 600; }
+  .hit-rate.good { color: #4ade80; }
+  .hit-rate.ok { color: #fbbf24; }
+  .hit-rate.bad { color: #f87171; }
+  .hit-rate.tbd { color: #555; }
+
+  .notes-input { width: 160px; }
+  .toolbar { display: flex; gap: 8px; margin-bottom: 16px; align-items: center; }
+  .drop-info { display: flex; gap: 16px; align-items: center; flex: 1; flex-wrap: wrap; }
+
+  .totals-row td { background: #111; color: #fff; font-size: 11px; border-top: 1px solid #222; }
+  .totals-row td.hl-green { color: #4ade80; font-weight: 600; font-size: 13px; }
+  .totals-row td.hl-purple { color: #a78bfa; font-weight: 600; font-size: 13px; }
+
+  .toast { position: fixed; bottom: 24px; right: 24px; background: #1a3a1a; border: 1px solid #2a5a2a; color: #4ade80; font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 10px 16px; border-radius: 6px; opacity: 0; transform: translateY(8px); transition: all 0.2s; pointer-events: none; z-index: 999; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.error { background: #2a1010; border-color: #4a1a1a; color: #f87171; }
+
+  .history-section { margin-top: 36px; border-top: 1px solid #1e1e1e; padding-top: 24px; }
+  .history-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 12px; flex-wrap: wrap; }
+  .history-title { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #fff; text-transform: uppercase; letter-spacing: 0.06em; }
+  .history-filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .history-filters input, .history-filters select { font-size: 11px; padding: 5px 8px; }
+  .history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+  .history-card { background: #111; border: 1px solid #1e1e1e; border-radius: 6px; padding: 12px 14px; cursor: pointer; transition: all 0.15s; }
+  .history-card:hover { border-color: #444; background: #141414; }
+  .history-card.active { border-color: #2a5a8a; background: #0f1f35; }
+  .hc-name { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; color: #fff; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hc-meta { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #aaa; }
+  .hc-checkouts { font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 600; color: #4ade80; margin-top: 6px; }
+  .hc-hr { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #fbbf24; margin-top: 2px; }
+  .hc-tags { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+  .hc-tag { font-size: 10px; padding: 2px 6px; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-weight: 500; }
+  .hc-tag.successful { background: #0f3320; color: #4ade80; border: 1px solid #1a5030; }
+  .hc-tag.flop { background: #2a1010; color: #f87171; border: 1px solid #4a1a1a; }
+  .hc-tag.custom { background: #2a2000; color: #fbbf24; border: 1px solid #5a4500; }
+  .hc-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .hc-btn { font-size: 10px; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-family: 'IBM Plex Mono', monospace; border: 1px solid #2a2a2a; background: #1a1a1a; color: #fff; transition: all 0.1s; }
+  .hc-btn:hover { border-color: #fff; }
+  .hc-btn.del:hover { color: #f87171; border-color: #4a1a1a; background: #2a1010; }
+  .hc-btn.dup { color: #fbbf24; }
+  .hc-btn.dup:hover { border-color: #fbbf24; }
+
+  .tags-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .recap-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 18px; }
+  .recap-row textarea { flex: 1; min-height: 60px; resize: vertical; background: #141414; border: 1px solid #2a2a2a; color: #e8e8e8; font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 8px 10px; border-radius: 4px; outline: none; line-height: 1.5; }
+  .recap-row textarea:focus { border-color: #fff; }
+  .recap-row textarea::placeholder { color: #555; }
+
+  .tags-current { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 3px 8px; border-radius: 4px; font-family: 'IBM Plex Mono', monospace; font-weight: 500; }
+  .tag-chip.successful { background: #0f3320; color: #4ade80; border: 1px solid #1a5030; }
+  .tag-chip.flop { background: #2a1010; color: #f87171; border: 1px solid #4a1a1a; }
+  .tag-chip.custom { background: #2a2000; color: #fbbf24; border: 1px solid #5a4500; }
+  .tag-chip-x { cursor: pointer; opacity: 0.6; font-weight: 700; padding-left: 2px; }
+  .tag-chip-x:hover { opacity: 1; }
+  .tag-quick-btn { font-size: 10px; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-family: 'IBM Plex Mono', monospace; border: 1px solid #333; background: #1a1a1a; color: #aaa; }
+  .tag-quick-btn:hover { border-color: #fff; color: #fff; }
+  .tag-quick-btn.successful:hover { border-color: #4ade80; color: #4ade80; }
+  .tag-quick-btn.flop:hover { border-color: #f87171; color: #f87171; }
+
+  .accounts-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #222; }
+  .accounts-title { font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 600; color: #a78bfa; }
+  .accounts-sub { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #fff; margin-top: 4px; }
+  .acct-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 24px; }
+  .acct-table-wrap { background: #0d0d0d; border: 1px solid #222; border-radius: 8px; overflow: hidden; }
+  .types-editor-wrap { background: #0d0d0d; border: 1px solid #222; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; }
+  .types-editor-title { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: #fff; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .types-editor-sub { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #aaa; margin-bottom: 14px; }
+  .type-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .proxy-presets-wrap { background: #0d0d0d; border: 1px solid #222; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; }
+  .preset-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+  .preset-tag { display: inline-flex; align-items: center; gap: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; padding: 2px 7px; border-radius: 3px; background: #1a1a2a; color: #a78bfa; border: 1px solid #2a2a5a; cursor: pointer; transition: all 0.15s; line-height: 1.5; }
+  .preset-tag:hover { background: #202040; border-color: #a78bfa; }
+  .preset-tag .x { opacity: 0.5; cursor: pointer; padding-left: 2px; font-weight: 700; font-size: 11px; }
+  .preset-tag .x:hover { opacity: 1; color: #f87171; }
+  .preset-section-header { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; margin-bottom: 4px; }
+  .preset-section-header:hover .types-editor-title { color: #fbbf24; }
+  .preset-caret { color: #888; font-size: 13px; transition: transform 0.15s; line-height: 1; }
+  .preset-collapsed .preset-caret { transform: rotate(-90deg); }
+  .preset-collapsed .preset-content { display: none; }
+  .preset-count { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #666; margin-left: 4px; }
+  .acct-add-form { display: flex; gap: 10px; align-items: center; padding: 14px 16px; background: #111; border-top: 1px solid #222; flex-wrap: wrap; }
+  .acct-add-form input { width: 180px; }
+  .acct-add-form input.count-in { width: 100px; }
+  input.acct-inline { background: transparent; border: none; border-bottom: 1px solid #333; color: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 2px 4px; outline: none; border-radius: 0; }
+  input.acct-inline:focus { border-bottom-color: #a78bfa; background: #1a0f2a; }
+  select.type-sel { background: #141414; border: 1px solid #2a2a2a; color: #e8e8e8; font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 3px 8px; border-radius: 4px; outline: none; }
+  .del-acct-btn { background: transparent; border: none; color: #555; font-size: 14px; cursor: pointer; padding: 0 4px; font-family: monospace; transition: color 0.1s; }
+  .del-acct-btn:hover { color: #f87171; }
+
+  .move-btn { background: transparent; border: none; color: #555; font-size: 14px; cursor: pointer; padding: 0 2px; font-family: monospace; transition: color 0.1s; line-height: 1; }
+  .move-btn:hover { color: #fbbf24; }
+  .move-btn:disabled { color: #2a2a2a; cursor: not-allowed; }
+  .row-actions-cell { display: flex; align-items: center; gap: 2px; }
+
+  .timeline-toggle { display: inline-flex; gap: 0; background: #141414; border: 1px solid #2a2a2a; border-radius: 4px; padding: 2px; }
+  .tl-btn { background: transparent; border: none; color: #aaa; font-family: 'IBM Plex Mono', monospace; font-size: 10px; padding: 4px 10px; border-radius: 3px; cursor: pointer; transition: all 0.15s; text-transform: uppercase; letter-spacing: 0.04em; }
+  .tl-btn:hover { color: #fff; }
+  .tl-btn.active { background: #1c3a5e; color: #7ab8f5; }
+
+  .section-collapse { background: transparent; border: none; color: #aaa; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 16px; padding: 0 6px; line-height: 1; transition: transform 0.2s; }
+  .section-collapse:hover { color: #fff; }
+  .section-collapsed .table-wrap { display: none; }
+
+  .row-toggle { display: flex; align-items: center; gap: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #aaa; cursor: pointer; user-select: none; }
+  .row-toggle input { margin: 0; cursor: pointer; }
+  .row-hidden { display: none; }
+
+  .templates-section { margin-top: 36px; border-top: 1px solid #1e1e1e; padding-top: 24px; }
+  .templates-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+  .template-card { background: #1a1600; border: 1px solid #3a3000; border-radius: 6px; padding: 12px 14px; cursor: pointer; transition: all 0.15s; }
+  .template-card:hover { border-color: #fbbf24; background: #221f00; }
+  .tc-name { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; color: #fbbf24; margin-bottom: 4px; }
+  .tc-meta { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #aaa; margin-bottom: 8px; }
+  .tc-actions { display: flex; gap: 6px; }
+
+  .modal.compare { width: 920px; max-width: 95vw; }
+  .compare-pickers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+  .compare-table { width: 100%; border-collapse: collapse; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+  .compare-table th { color: #ccc; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 10px; text-align: left; border-bottom: 1px solid #222; font-weight: 600; }
+  .compare-table td { padding: 8px 10px; border-bottom: 1px solid #181818; color: #ddd; }
+  .compare-table .winner { color: #4ade80; font-weight: 600; }
+  .compare-table .loser { color: #888; }
+  .compare-table .tie { color: #fbbf24; }
+
+  .analytics-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #222; }
+  .analytics-title { font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 600; color: #4ade80; }
+  .analytics-sub { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #aaa; margin-top: 4px; }
+  .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  .chart-card { background: #0d0d0d; border: 1px solid #222; border-radius: 8px; padding: 20px; }
+  .chart-title { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; color: #fff; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 16px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .bar-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #fff; width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+  .bar-track { flex: 1; background: #1a1a1a; border-radius: 3px; height: 22px; position: relative; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s; display: flex; align-items: center; padding-left: 8px; }
+  .bar-val { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; }
+  .bar-pct { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #aaa; width: 55px; text-align: right; flex-shrink: 0; }
+  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+  .drop-compare-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .drop-compare-table th { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #ccc; text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 12px; text-align: left; border-bottom: 1px solid #222; }
+  .drop-compare-table td { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #ddd; padding: 8px 12px; border-bottom: 1px solid #181818; }
+  .drop-compare-table tr:last-child td { border-bottom: none; }
+  .drop-compare-table tr:hover td { background: #141414; }
+  .rank-1 { color: #fbbf24 !important; font-weight: 600; }
+  .rank-2 { color: #aaa !important; }
+  .rank-3 { color: #cd7f32 !important; }
+  .no-data { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #555; text-align: center; padding: 40px; }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 64px 24px; background: #0d0d0d; border: 1px dashed #2a2a2a; border-radius: 8px; }
+  .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.7; }
+  .empty-title { font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: #fff; font-weight: 600; margin-bottom: 8px; letter-spacing: 0.04em; }
+  .empty-desc { font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; color: #aaa; line-height: 1.6; max-width: 360px; margin: 0 auto 20px; }
+  .empty-cta { display: inline-block; }
+  .empty-state.compact { padding: 32px 16px; }
+  .empty-state.compact .empty-icon { font-size: 32px; margin-bottom: 10px; }
+  .empty-state.compact .empty-title { font-size: 13px; }
+  .empty-state.compact .empty-desc { font-size: 12px; }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-overlay.visible { display: flex; }
+  .modal { background: #111; border: 1px solid #333; border-radius: 10px; padding: 28px; width: 420px; max-width: 90vw; }
+  .modal-title { font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 8px; }
+  .modal-sub { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #aaa; margin-bottom: 24px; }
+  .modal-options { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+  .modal-option { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 16px; cursor: pointer; transition: all 0.15s; }
+  .modal-option:hover { border-color: #fff; background: #222; }
+  .modal-option.selected { border-color: #5fa8e8; background: #0f1f35; }
+  .modal-option-title { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: #fff; margin-bottom: 4px; }
+  .modal-option-desc { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #aaa; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* WELCOME / UPDATES PAGES */
+  .info-page { max-width: 800px; margin: 0 auto; }
+  .info-page h1 { font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #fff; margin-bottom: 8px; font-weight: 600; }
+  .info-page .lead { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #aaa; margin-bottom: 32px; line-height: 1.6; }
+  .info-page h2 { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #fbbf24; margin-top: 32px; margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+  .info-page h3 { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #5fa8e8; margin-top: 20px; margin-bottom: 8px; font-weight: 600; }
+  .info-page p { font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; color: #ddd; line-height: 1.7; margin-bottom: 12px; }
+  .info-page ul, .info-page ol { font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; color: #ddd; line-height: 1.8; margin-left: 24px; margin-bottom: 16px; }
+  .info-page li { margin-bottom: 4px; }
+  .info-page code { font-family: 'IBM Plex Mono', monospace; font-size: 12px; background: #1a1a1a; color: #fbbf24; padding: 2px 6px; border-radius: 3px; }
+  .info-page .tip { background: #0f2a45; border-left: 3px solid #5fa8e8; padding: 12px 16px; margin: 16px 0; border-radius: 4px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; color: #cce; line-height: 1.6; }
+  .info-page .warn { background: #2a1010; border-left: 3px solid #f87171; padding: 12px 16px; margin: 16px 0; border-radius: 4px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; color: #fcc; line-height: 1.6; }
+  .info-page .tip strong, .info-page .warn strong { color: #fff; }
+  .info-page kbd { font-family: 'IBM Plex Mono', monospace; font-size: 11px; background: #1a1800; color: #fbbf24; border: 1px solid #3a3000; padding: 1px 6px; border-radius: 3px; }
+  .reset-section { margin-top: 48px; padding: 20px; background: #1a0a0a; border: 1px solid #3a1010; border-radius: 8px; }
+  .reset-section h2 { color: #f87171; margin-top: 0; }
+
+  .update-entry { background: #0d0d0d; border: 1px solid #222; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+  .update-version { display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #4ade80; background: #0f3320; border: 1px solid #1a5030; padding: 3px 10px; border-radius: 4px; font-weight: 600; margin-bottom: 4px; }
+  .update-date { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #888; margin-left: 8px; }
+  .update-title { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #fff; margin-top: 8px; margin-bottom: 12px; font-weight: 600; }
+  .update-list { font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; color: #ddd; line-height: 1.8; margin-left: 24px; }
+
+  #importInput { display: none; }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="nav-tab tab-drops active" onclick="switchTab('drops')">Drops</div>
+  <div class="nav-tab tab-analytics" onclick="switchTab('analytics')">Analytics</div>
+  <div class="nav-tab tab-accounts" onclick="switchTab('accounts')">Config</div>
+  <div class="nav-tab tab-updates" onclick="switchTab('updates')">Updates</div>
+  <div class="nav-tab tab-welcome" onclick="switchTab('welcome')">Welcome / Guide</div>
+</div>
+
+<!-- DROPS PAGE -->
+<div class="page active" id="page-drops">
+  <div class="header">
+    <div>
+      <div class="title">STAT TRACKER <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#4ade80;background:#0f3320;border:1px solid #1a5030;padding:3px 8px;border-radius:4px;font-weight:600;letter-spacing:0.04em;margin-left:8px;vertical-align:middle">v1.10</span></div>
+      <div id="headerSubtitle"></div>
+    </div>
+    <div class="header-actions">
+      <span id="autosaveIndicator" class="autosave-indicator">Saved</span>
+      <label class="row-toggle"><input type="checkbox" id="hideUnusedToggle" onchange="toggleHideUnused()"> Hide unused</label>
+      <button class="btn purple" onclick="exportData()">↓ Export</button>
+      <button class="btn purple" onclick="document.getElementById('importInput').click()">↑ Import</button>
+      <input type="file" id="importInput" accept=".json" onchange="importData(event)">
+      <button class="btn edit-off" id="editBtn" onclick="toggleEditMode()">✎ Edit Setup</button>
+      <button class="btn" onclick="newDrop()">+ New Drop</button>
+      <button class="btn primary" onclick="saveDrop()">Save Drop</button>
+    </div>
+  </div>
+
+  <div class="edit-mode-banner" id="editBanner">EDIT MODE — all setup fields are now editable. Click "Done Editing" when finished.</div>
+
+  <div class="toolbar">
+    <div class="drop-info">
+      <div style="display:flex;align-items:center;gap:6px;"><span class="drop-label">Item</span><input type="text" id="dropName" placeholder="e.g. Nike SB Dunk Low" style="width:200px" oninput="autoSave()"></div>
+      <div style="display:flex;align-items:center;gap:6px;"><span class="drop-label">Date</span><input type="date" id="dropDate" oninput="autoSave()"></div>
+      <div style="display:flex;align-items:center;gap:6px;"><span class="drop-label">Site</span><input type="text" id="dropSite" placeholder="e.g. Walmart" style="width:120px" oninput="autoSave()"></div>
+    </div>
+    <button class="btn danger" onclick="clearInputs()">Clear</button>
+  </div>
+
+  <div class="tags-row">
+    <span class="drop-label">Tags</span>
+    <div class="tags-current" id="tagsCurrent"></div>
+    <button class="tag-quick-btn successful" onclick="addTag('successful')">+ Successful</button>
+    <button class="tag-quick-btn flop" onclick="addTag('flop')">+ Flop</button>
+    <input type="text" id="customTagInput" placeholder="custom tag..." style="width:150px;font-size:11px;padding:5px 8px" onkeydown="if(event.key==='Enter'){addCustomTag();}">
+    <button class="tag-quick-btn" onclick="addCustomTag()">+ Add</button>
+  </div>
+
+  <div class="recap-row">
+    <span class="drop-label" style="vertical-align:top;padding-top:8px">Recap</span>
+    <textarea id="dropRecap" placeholder="Drop notes — what happened? site issues, queue times, captcha, anything worth remembering..." oninput="autoSave()"></textarea>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-label">Total Checkouts</div><div class="stat-value green" id="statTotal">0</div><div class="stat-sub">refract + shikari</div></div>
+    <div class="stat-card"><div class="stat-label" id="statMeLabel">My Checkouts</div><div class="stat-value" id="statMe">0</div><div class="stat-sub" id="statMeSub">your accounts</div></div>
+    <div class="stat-card"><div class="stat-label" id="statAcoLabel">ACO Checkouts</div><div class="stat-value" id="statAco">0</div><div class="stat-sub" id="statAcoSub">ACO accounts</div></div>
+    <div class="stat-card"><div class="stat-label">Refract Checkouts</div><div class="stat-value blue" id="statRefract">0</div><div class="stat-sub">refract bot</div></div>
+    <div class="stat-card"><div class="stat-label">Shikari Checkouts</div><div class="stat-value purple" id="statShikari">0</div><div class="stat-sub">shikari bot</div></div>
+    <div class="stat-card"><div class="stat-label">Avg Hit Rate</div><div class="stat-value yellow" id="statHitRate">—</div><div class="stat-sub">checkouts / tasks</div></div>
+  </div>
+
+  <div class="section-header" id="refractHeader"><button class="section-collapse" onclick="toggleSection('refract')">▾</button><span class="section-title refract">Refract</span><span class="section-sub" id="refractSub"></span></div>
+  <div class="table-wrap" id="refractWrap">
+    <table><thead><tr><th>#</th><th>Server</th><th>Bot</th><th>Account Group</th><th>Tasks</th><th>Ratio</th><th>Task Proxy</th><th>Que Proxy</th><th>Checkouts</th><th>Hit Rate</th><th>Notes</th><th></th></tr></thead>
+    <tbody id="refractBody"></tbody></table>
+    <button class="add-row-btn" onclick="addRow('r')">+ Add Refract</button>
+  </div>
+
+  <div class="section-header" id="shikariHeader" style="margin-top:40px;"><button class="section-collapse" onclick="toggleSection('shikari')">▾</button><span class="section-title shikari">Shikari</span><span class="section-sub" id="shikariSub"></span></div>
+  <div class="table-wrap" id="shikariWrap">
+    <table><thead><tr><th>#</th><th>Server</th><th>Bot</th><th>Account Group</th><th>Tasks</th><th>Ratio</th><th>Proxy</th><th>Fallback Proxy</th><th>Checkouts</th><th>Hit Rate</th><th>Notes</th><th></th></tr></thead>
+    <tbody id="shikariBody"></tbody></table>
+    <button class="add-row-btn" onclick="addRow('s')">+ Add Shikari</button>
+  </div>
+
+  <div class="history-section">
+    <div class="history-header">
+      <div class="history-title">Drop History</div>
+      <div class="history-filters">
+        <button class="btn" onclick="openCompareModal()" style="font-size:10px;padding:5px 10px">⇄ Compare</button>
+        <input type="text" id="searchInput" placeholder="🔍 Search by item, site..." style="width:220px" oninput="renderHistory()">
+        <select id="filterTag" onchange="renderHistory()" style="width:140px">
+          <option value="">All tags</option>
+          <option value="successful">Successful</option>
+          <option value="flop">Flop</option>
+          <option value="__custom__">Has custom tag</option>
+        </select>
+        <select id="filterSite" onchange="renderHistory()" style="width:120px"><option value="">All sites</option></select>
+        <select id="sortBy" onchange="renderHistory()" style="width:140px">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="best">Most checkouts</option>
+          <option value="hr">Best hit rate</option>
+        </select>
+        <button class="btn" onclick="clearFilters()" style="font-size:10px;padding:5px 10px">Reset</button>
+      </div>
+    </div>
+    <div class="history-grid" id="historyGrid"></div>
+  </div>
+
+  <div class="templates-section">
+    <div class="history-header">
+      <div class="history-title">Drop Templates</div>
+      <div class="history-filters">
+        <input type="text" id="newTemplateName" placeholder="Template name..." style="width:200px;font-size:11px;padding:5px 8px" onkeydown="if(event.key==='Enter')saveAsTemplate()">
+        <button class="btn" onclick="saveAsTemplate()" style="font-size:10px;padding:5px 10px">+ Save current as template</button>
+      </div>
+    </div>
+    <div class="templates-grid" id="templatesGrid"></div>
+  </div>
+</div>
+
+<!-- ANALYTICS -->
+<div class="page" id="page-analytics">
+  <div class="analytics-header">
+    <div>
+      <div class="analytics-title">ANALYTICS</div>
+      <div class="analytics-sub" id="analyticsSub">Loading...</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+      <span class="drop-label">Drop</span>
+      <select id="analyticsFilter" onchange="setAnalyticsFilter(this.value)" style="min-width:200px"></select>
+      <span id="autosaveIndicatorAnalytics" class="autosave-indicator">Saved</span>
+      <button class="btn primary" onclick="exportAnalyticsCsv()">↓ Export CSV</button>
+    </div>
+  </div>
+  <div id="analyticsContent"></div>
+</div>
+
+<!-- ACCOUNTS -->
+<div class="page" id="page-accounts">
+  <div class="accounts-header">
+    <div>
+      <div class="accounts-title">CONFIG</div>
+      <div class="accounts-sub" id="acctSubtitle">0 groups · 0 total accounts</div>
+    </div>
+    <span id="autosaveIndicatorAccounts" class="autosave-indicator">Saved</span>
+  </div>
+  <div class="acct-stats" id="acctStats"></div>
+
+  <div class="types-editor-wrap">
+    <div class="types-editor-title">Account Types</div>
+    <div class="types-editor-sub">Customize the types you can assign to account groups. Edit names, change colors, add or remove types.</div>
+    <div id="typesEditor"></div>
+  </div>
+
+  <div class="acct-table-wrap">
+    <table>
+      <thead><tr><th>Name</th><th>Type</th><th>Total Accounts</th><th>Range / Notes</th><th></th></tr></thead>
+      <tbody id="acctBody"></tbody>
+    </table>
+    <div class="acct-add-form">
+      <span class="drop-label" style="margin-right:4px;">Add Group</span>
+      <input type="text" id="newAcctName" placeholder="Group name (e.g. My Accts)" style="width:180px">
+      <select class="type-sel" id="newAcctType"></select>
+      <input type="number" id="newAcctCount" placeholder="# of accounts" class="count-in" min="0">
+      <input type="text" id="newAcctRange" placeholder="Range / notes (optional)" style="width:200px">
+      <button class="btn primary" onclick="addAcctGroup()">+ Add</button>
+    </div>
+  </div>
+
+  <div class="proxy-presets-wrap" id="proxyPresetsWrap" style="margin-top:24px">
+    <div class="preset-section-header" onclick="togglePresetSection('proxy')">
+      <span class="preset-caret">▾</span>
+      <div class="types-editor-title">Proxy Presets</div>
+      <span class="preset-count" id="proxyPresetsCount"></span>
+    </div>
+    <div class="preset-content">
+      <div class="types-editor-sub">Save commonly-used proxy names. They'll appear as suggestions when filling proxy fields on drops.</div>
+      <div class="preset-row" id="proxyPresetsList"></div>
+      <div class="preset-row">
+        <input type="text" id="newProxyPreset" placeholder="e.g. HMA, MACINCLOUD..." style="width:220px" onkeydown="if(event.key==='Enter')addProxyPreset()">
+        <button class="btn primary" onclick="addProxyPreset()" style="font-size:10px;padding:5px 10px">+ Add Preset</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="proxy-presets-wrap" id="serverPresetsWrap">
+    <div class="preset-section-header" onclick="togglePresetSection('server')">
+      <span class="preset-caret">▾</span>
+      <div class="types-editor-title">Server Presets</div>
+      <span class="preset-count" id="serverPresetsCount"></span>
+    </div>
+    <div class="preset-content">
+      <div class="types-editor-sub">Save commonly-used server names. They'll appear as suggestions when filling the Server column in Edit Setup mode.</div>
+      <div class="preset-row" id="serverPresetsList"></div>
+      <div class="preset-row">
+        <input type="text" id="newServerPreset" placeholder="e.g. XYZ BM 9950x, CHEF 7950x..." style="width:260px" onkeydown="if(event.key==='Enter')addServerPreset()">
+        <button class="btn primary" onclick="addServerPreset()" style="font-size:10px;padding:5px 10px">+ Add Preset</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="proxy-presets-wrap">
+    <div class="types-editor-title">Defaults</div>
+    <div class="types-editor-sub">When you click "+ Add Refract" or "+ Add Shikari" in Edit Setup, new rows will use this default task count.</div>
+    <div class="preset-row">
+      <span class="drop-label">Default tasks</span>
+      <input type="number" id="defaultTasks" value="3000" min="1" style="width:120px" oninput="updateDefaults()">
+    </div>
+  </div>
+</div>
+
+<!-- WELCOME / GUIDE -->
+<div class="page" id="page-welcome">
+  <div class="info-page">
+    <h1 style="color:#fbbf24">Welcome to Stat Tracker 👋</h1>
+    <div class="lead">A tracker for analyzing your performance across drops. Built to compare hit rates, account groups, proxies, and bots over time.</div>
+
+    <div class="tip"><strong>This is a sample copy</strong> — there are 2 example drops loaded so you can see how things look filled out. Once you're ready to use it for real, scroll to the bottom and hit the Reset button to wipe everything clean.</div>
+
+    <h2>Quick Start</h2>
+    <ol>
+      <li>Go to the <strong>Config</strong> tab and set up your account groups (click ✕ on the example ones first if needed)</li>
+      <li>Add your proxy presets — common names you use like HMA, MACINCLOUD, etc.</li>
+      <li>Back on <strong>Drops</strong>, hit <strong>✎ Edit Setup</strong> to customize your refract/shikari servers, bots, account assignments</li>
+      <li>Hit <strong>✓ Done Editing</strong> to save your config</li>
+      <li>You're ready — fill in checkouts as drops happen and hit <strong>Save Drop</strong></li>
+    </ol>
+
+    <h2>How It Works</h2>
+    <h3>Drops Tab</h3>
+    <p>The main page. Each "drop" represents one product release you ran. Enter checkouts per refract/shikari instance, add tags, write a recap, and stats / hit rates calculate automatically. Use <strong>+ New Drop</strong> to start fresh, <strong>Save Drop</strong> to lock it in (auto-save also handles this in the background).</p>
+
+    <h3>Config Tab</h3>
+    <p>Where you set up everything that supports your drops:</p>
+    <ul>
+      <li><strong>Account Types</strong> — fully customizable categories (e.g. ME, ACO, Resi). Edit names and colors, add or delete types.</li>
+      <li><strong>Account Groups</strong> — actual groups of accounts (e.g. "My Accts 1-3000"). Assign them to refracts on the Drops page. Use the ▲▼ arrows to reorder them.</li>
+      <li><strong>Proxy Presets</strong> — save common proxy names so they autocomplete when filling proxy fields.</li>
+      <li><strong>Server Presets</strong> — save common server names so they autocomplete when editing setup.</li>
+      <li><strong>Defaults</strong> — set the default task count for new refract / shikari rows.</li>
+    </ul>
+
+    <h3>Analytics Tab</h3>
+    <p>Auto-generated charts across all your saved drops. Use the <strong>Drop</strong> dropdown at the top to switch between "All drops" (aggregate view) and any specific drop you've saved. When viewing a single drop, the page re-scopes to just that drop's numbers.</p>
+    <p>What you'll see in <strong>All drops</strong> mode:</p>
+    <ul>
+      <li><strong>Summary cards</strong> — total checkouts, average per drop, best/worst drops, best hit rate</li>
+      <li><strong>Drop Comparison table</strong> — every drop ranked 🥇🥈🥉 with their checkouts, hit rate, tags, and bot breakdowns</li>
+      <li><strong>Account Group / Site Performance</strong> bar charts</li>
+      <li><strong>Checkouts Timeline</strong> — toggle between <strong>Per Drop / Weekly / Monthly</strong> to spot longer-term trends</li>
+    </ul>
+    <p>Plus 4 proxy charts (see below). Hit <strong>↓ Export CSV</strong> any time to pull all drops into a spreadsheet.</p>
+
+    <h3>📊 Per-Drop Analytics</h3>
+    <p>On the Drop History grid, every card has a green 📊 button. Click it and you'll jump straight to the Analytics tab filtered to just that drop — useful when you want to dig into a specific drop without losing the aggregate view. To go back to the full picture, change the dropdown back to "All drops".</p>
+
+    <h3>Proxy Performance</h3>
+    <p>Four separate charts on the Analytics tab so same-name proxies running in different roles don't get mixed up:</p>
+    <ul>
+      <li><strong>Refract — Task Proxy</strong> — refract rows where only Task Proxy was set</li>
+      <li><strong>Refract — Que Proxy</strong> — refract rows where Que Proxy was set. Each bar shows a small "w/" line listing the Task Proxy(s) it was paired with and how many times</li>
+      <li><strong>Shikari — Proxy</strong> — Shikari Proxy field only (Fallback Proxy ignored)</li>
+      <li><strong>All Proxies — Combined</strong> — every proxy ranked by total checkouts regardless of role. Hover any bar for the role breakdown</li>
+    </ul>
+    <p>Each chart shows total checkouts and hit rate per proxy. Hover to see how many times the proxy was used across your drops.</p>
+
+    <h3>Tags &amp; Recap</h3>
+    <p>Tag drops as <code>successful</code>, <code>flop</code>, or any custom tag. The recap field is for context — site issues, queue times, anything worth remembering when you look back later. Filter by tag in the Drop History.</p>
+
+    <h3>Drop History &amp; Compare</h3>
+    <p>Below the current drop on the Drops tab is your full history. Search by name, filter by tag or site, sort by newest/oldest/best/hit rate. Each card has buttons to <strong>Load</strong>, jump to <strong>📊 Analytics</strong>, <strong>Duplicate</strong>, or Delete.</p>
+    <p>Click <strong>⇄ Compare</strong> to put two drops side-by-side. Winners are highlighted in green, losers in grey, ties in yellow. Includes per-instance breakdown so you can see exactly which servers/proxies performed differently between drops.</p>
+    <p><strong>Duplicate</strong> opens a modal asking whether you want to copy just the setup (proxies, account groups, notes) or the full drop including checkouts. Useful for restocks where the config stays the same.</p>
+
+    <h3>Templates</h3>
+    <p>Save a fully configured drop as a reusable template. Useful for recurring sites where the setup stays similar — applying a template starts a new drop with your saved config and proxies pre-filled. Find this section at the bottom of the Drops tab.</p>
+
+    <h3>Auto-calculated Ratios</h3>
+    <p>The Ratio column on each refract/shikari row updates automatically based on how many instances share the same account group. Each unique ratio gets its own color so you can spot patterns at a glance (e.g. all 5:1 rows might be blue, all 3:1 pink).</p>
+
+    <h2>Updates &amp; Versioning</h2>
+    <p><strong>Good news:</strong> When a new version of the file drops, your saved data (drops, configs, account groups, etc.) carries over automatically when you open the new file in the same browser. New features just appear on top of your existing data.</p>
+    <p><strong>The catch:</strong> If you rename the file or save it to a different location, the browser may treat it as a brand new file and not see your old data. To avoid this, <strong>always open the tracker from the same place</strong> (e.g. always double-click <code>stat_tracker.html</code> in your Downloads folder).</p>
+    <p>Check the <strong>Updates</strong> tab any time you download a new version to see what's new. The version badge next to the title (e.g. <kbd>v1.4</kbd>) tells you which version you're on.</p>
+
+    <div class="warn"><strong>Important:</strong> All data lives in your browser's localStorage. If you clear your browser cache or switch devices, you'll lose everything. <strong>Always export a backup before doing anything risky</strong> — including before opening a new version of the file for the first time.</div>
+
+    <h2>Tips</h2>
+    <ul>
+      <li>Auto-save runs ~400ms after every keystroke — you'll see "Saving..." flash, then "Saved"</li>
+      <li>Use <strong>Hide Unused</strong> to focus only on refracts that hit checkouts</li>
+      <li>Click ▾ next to Refract or Shikari to collapse those sections</li>
+      <li>Account types are fully customizable in the Config tab — colors, names, everything</li>
+      <li>Click the title (or caret) on Proxy / Server Presets in Config to collapse them when not editing</li>
+      <li>Use Drop Templates if you run the same site repeatedly with similar setup</li>
+      <li>The 📊 button on history cards is the fastest way to dig into a single drop's stats</li>
+      <li>For Refract rows, fill in <strong>Que Proxy</strong> separately if you use a different proxy for the queue vs tasks — the analytics pair them automatically</li>
+      <li>Switch the Analytics timeline to <strong>Weekly</strong> or <strong>Monthly</strong> to spot longer-term trends</li>
+      <li>Export a JSON backup from the Config tab regularly — especially before clearing browser data or switching browsers</li>
+    </ul>
+
+    <div class="reset-section">
+      <h2>Reset to Fresh Template</h2>
+      <p style="color:#fcc">This wipes all data — drops, history, account groups, types, proxies, templates, everything. Use this when you've explored the examples and want to start fresh with your own setup.</p>
+      <p style="color:#fcc">It will reload the page with an empty starter template.</p>
+      <button class="btn danger" onclick="resetAll()" style="font-size:13px;padding:10px 20px;margin-top:8px">⚠ Reset All Data</button>
+    </div>
+  </div>
+</div>
+
+<!-- UPDATES -->
+<div class="page" id="page-updates">
+  <div class="info-page">
+    <h1 style="color:#f87171">Updates</h1>
+    <div class="lead">Changelog of new features and improvements. Newest at the top.</div>
+
+    <div class="update-entry">
+      <span class="update-version">v1.10</span>
+      <span class="update-date">May 4, 2026</span>
+      <div class="update-title">Per-drop analytics + combined proxy chart</div>
+      <ul class="update-list">
+        <li><strong>Drop filter on Analytics tab</strong> — dropdown at the top to switch between "All drops" (default aggregate view) and any individual drop. All charts re-calculate just for that drop.</li>
+        <li><strong>📊 button on history cards</strong> — click it to jump straight to Analytics filtered to that drop.</li>
+        <li><strong>All Proxies — Combined chart</strong> — every proxy ranked by total checkouts regardless of role (task/que/shikari). Hover for the role breakdown.</li>
+      </ul>
+    </div>
+
+    <div class="update-entry">
+      <span class="update-version">v1.9</span>
+      <span class="update-date">May 4, 2026</span>
+      <div class="update-title">Proxy performance — split by role</div>
+      <ul class="update-list">
+        <li><strong>Refract — Task Proxy</strong> chart (when no Que Proxy is set) — for refracts running just task proxies.</li>
+        <li><strong>Refract — Que Proxy</strong> chart (paired with Task Proxy) — shows the que proxy that cooked + a "w/" line listing the task proxy(s) it was paired with and how many times.</li>
+        <li><strong>Shikari — Proxy</strong> chart — same as before, fallback ignored.</li>
+        <li>This separates same-named proxies running in different roles (e.g. LIVE 500 used as Task Proxy on some refracts vs Que Proxy on others).</li>
+      </ul>
+    </div>
+
+    <div class="update-entry">
+      <span class="update-version">v1.8</span>
+      <span class="update-date">May 4, 2026</span>
+      <div class="update-title">Proxy performance chart</div>
+      <ul class="update-list">
+        <li><strong>Proxy Performance</strong> in Analytics — see total checkouts and hit rate per proxy across all your drops.</li>
+        <li><strong>Smart proxy logic</strong> — for Refract rows, Que Proxy is used if filled (since that's the one cooking), otherwise Task Proxy. For Shikari rows only the main Proxy counts (Fallback Proxy ignored).</li>
+        <li>Hover over any bar to see how many times that proxy was used across your drops.</li>
+      </ul>
+    </div>
+
+    <div class="update-entry">
+      <span class="update-version">v1.7</span>
+      <span class="update-date">May 4, 2026</span>
+      <div class="update-title">Friendlier empty states</div>
+      <ul class="update-list">
+        <li><strong>Analytics</strong> — when you have no drops yet, shows a 📊 icon with a "Go to Drops" button instead of a blank page.</li>
+        <li><strong>Drop History</strong> — separate empty state for "no drops yet" (📦) vs "no matches for filters" (🔍 with a Reset Filters button).</li>
+        <li><strong>Templates</strong> — friendlier 📋 prompt explaining how to save your first template.</li>
+      </ul>
+    </div>
+
+    <div class="update-entry">
+      <span class="update-version">v1.6</span>
+      <span class="update-date">May 4, 2026</span>
+      <div class="update-title">Weekly &amp; monthly analytics</div>
+      <ul class="update-list">
+        <li><strong>Timeline view toggle</strong> — switch the Checkouts Timeline chart between Per Drop, Weekly, and Monthly. Helps spot longer-term trends without scrolling through individual drops.</li>
+        <li>Buckets show total checkouts, drop count, and avg hit rate for that period.</li>
+      </ul>
+    </div>
+
+    <div class="update-entry">
+      <span class="update-version">v1.5</span>
+      <span class="update-date">May 4, 2026</span>
+      <div class="update-title">Cleaner preset UI</div>
+      <ul class="update-list">
+        <li><strong>Compact preset chips</strong> — smaller padding so more presets fit per row.</li>
+        <li><strong>Alphabetical sort</strong> — proxy and server presets now display A→Z so they're easier to scan.</li>
+        <li><strong>Collapsible sections</strong> — click the title (or caret) on Proxy Presets / Server Presets to collapse them when you're not actively editing. Count appears next to the title.</li>
+      </ul>
+    </div>
+
+    <div class="update-entry">
+      <span class="update-version">v1.4</span>
+      <span class="update-date">May 4, 2026</span>
+      <div class="update-title">Reorder account groups + Guide refresh</div>
+      <ul class="update-list">
+        <li><strong>Reorder account groups</strong> — ▲▼ arrows on each row in the Config tab. Click to move groups up or down to organize them however you want.</li>
+        <li><strong>Welcome / Guide tab fully refreshed</strong> with the latest features — covers Config tab subsections (Types, Groups, Proxy Presets, Server Presets, Defaults), auto-calculated ratios, and an expanded Tips section.</li>
+      </ul>
+    </div>
+
+    <div class="update-entry">
+      <span class="update-version">v1.3</span>
+      <span class="update-date">May 4, 2026</span>
+      <div class="update-title">Server presets &amp; defaults</div>
+      <ul class="update-list">
+        <li><strong>Server Presets</strong> — save commonly-used server names (XYZ BM 9950x, CHEF 7950x, etc.). They autocomplete in the Server column when editing setup.</li>
+        <li><strong>Defaults</strong> — set a default task count so new refracts/shikaris start with your standard value when you click + Add.</li>
+      </ul>
+    </div>
+
+    <div class="update-entry">
+      <span class="update-version">v1.2</span>
+      <span class="update-date">May 4, 2026</span>
+      <div class="update-title">Color-coded ratios</div>
+      <ul class="update-list">
+        <li><strong>Ratio column is now color-coded</strong> — each unique ratio gets its own color automatically (e.g. 5:1 might be blue, 3:1 pink, 4:1 green). Same ratio always gets the same color so you can spot patterns at a glance.</li>
+        <li><strong>Welcome / Guide updated</strong> — added "Updates &amp; Versioning" section explaining how data carries over when new versions are released.</li>
+      </ul>
+    </div>
+
+    <div class="update-entry">
+      <span class="update-version">v1.1</span>
+      <span class="update-date">May 4, 2026</span>
+      <div class="update-title">UI cleanup &amp; reorganization</div>
+      <ul class="update-list">
+        <li><strong>Renamed "Accounts" tab to "Config"</strong> — better reflects what's in there (account types, groups, AND proxy presets)</li>
+        <li><strong>Reordered nav</strong> — Welcome / Guide is now the last tab, Updates moved up</li>
+        <li><strong>Proxy Presets moved to bottom</strong> of the Config tab so the page flows: Account Types → Account Groups → Proxy Presets</li>
+        <li><strong>Version badge</strong> next to the title so you can tell at a glance which version you're on</li>
+      </ul>
+    </div>
+
+    <div class="update-entry">
+      <span class="update-version">v1.0</span>
+      <span class="update-date">Initial release</span>
+      <div class="update-title">First public version 🎉</div>
+      <ul class="update-list">
+        <li><strong>Drops tab</strong> — track checkouts, proxies, ratios, hit rates per refract/shikari instance</li>
+        <li><strong>Tags + recap</strong> — label drops as successful/flop/custom and write notes</li>
+        <li><strong>Account groups + custom types</strong> — fully customizable types with color coding</li>
+        <li><strong>Auto-save</strong> with status indicator</li>
+        <li><strong>Drop templates</strong> for recurring drops</li>
+        <li><strong>Drop history</strong> with search, filter, sort, and last-edited timestamps</li>
+        <li><strong>Side-by-side compare</strong> any two drops</li>
+        <li><strong>Analytics tab</strong> — averages, best/worst drops, account group performance, site performance, timeline</li>
+        <li><strong>CSV export</strong> for analytics data</li>
+        <li><strong>JSON export/import</strong> for full backups and sharing</li>
+        <li><strong>Proxy presets</strong> with autocomplete</li>
+        <li><strong>Collapsible sections</strong> and hide-unused toggle</li>
+        <li><strong>Auto-calculated ratios</strong> based on account group usage</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- COMPARE MODAL -->
+<div class="modal-overlay" id="compareModal">
+  <div class="modal compare">
+    <div class="modal-title">Compare Drops</div>
+    <div class="modal-sub">Pick two drops to compare side by side</div>
+    <div class="compare-pickers">
+      <div><div class="drop-label" style="margin-bottom:6px">Drop A</div><select id="compareA" onchange="renderCompare()" style="width:100%"></select></div>
+      <div><div class="drop-label" style="margin-bottom:6px">Drop B</div><select id="compareB" onchange="renderCompare()" style="width:100%"></select></div>
+    </div>
+    <div id="compareContent" style="max-height:60vh;overflow-y:auto;background:#0d0d0d;border:1px solid #222;border-radius:8px;padding:12px"></div>
+    <div class="modal-actions" style="margin-top:18px"><button class="btn" onclick="closeCompareModal()">Close</button></div>
+  </div>
+</div>
+
+<!-- DUPLICATE MODAL -->
+<div class="modal-overlay" id="dupModal">
+  <div class="modal">
+    <div class="modal-title">Duplicate Drop</div>
+    <div class="modal-sub" id="dupModalSub">Choose what to copy</div>
+    <div class="modal-options">
+      <div class="modal-option selected" id="dupOpt1" onclick="selectDupOpt(1)"><div class="modal-option-title">Setup only</div><div class="modal-option-desc">Copies account groups + ratios. Checkouts, proxies and notes start blank.</div></div>
+      <div class="modal-option" id="dupOpt2" onclick="selectDupOpt(2)"><div class="modal-option-title">Full copy</div><div class="modal-option-desc">Copies everything — proxies, account groups, checkouts and notes.</div></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeDupModal()">Cancel</button>
+      <button class="btn primary" onclick="confirmDuplicate()">Duplicate</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<datalist id="proxyDatalist"></datalist>
+<datalist id="serverDatalist"></datalist>
+
+<script>
+const SK_DROPS="dt_drops",SK_CFG_R="dt_cfg_refract",SK_CFG_S="dt_cfg_shikari",SK_ACCTS="dt_accounts",SK_TYPES="dt_types",SK_PRESETS="dt_proxy_presets",SK_SERVER_PRESETS="dt_server_presets",SK_DEFAULTS="dt_defaults",SK_TEMPLATES="dt_templates",SK_UI="dt_ui";
+
+// ── EXAMPLE TEMPLATE DATA (generic, no real info) ──
+const EX_REFRACTS=[
+  {id:1,label:"R1",server:"Server 1",bot:"REFRACT 1",acctGroupId:"ag1",tasks:3000,ratio:"4:1"},
+  {id:2,label:"R2",server:"Server 2",bot:"REFRACT 2",acctGroupId:"ag1",tasks:3000,ratio:"4:1"},
+  {id:3,label:"R3",server:"Server 3",bot:"REFRACT 3",acctGroupId:"ag2",tasks:3000,ratio:"4:1"},
+  {id:4,label:"R4",server:"Server 4",bot:"REFRACT 4",acctGroupId:"ag2",tasks:3000,ratio:"4:1"},
+];
+const EX_SHIKARI=[{id:101,label:"S1",server:"Server 5",bot:"SHIKARI 1",acctGroupId:"ag1",tasks:3000,ratio:"4:1"}];
+const EX_ACCTS=[
+  {id:"ag1",name:"Example My Accts",type:"ME",count:3000,range:"1–3000"},
+  {id:"ag2",name:"Example ACO",type:"ACO",count:3000,range:"1–3000"},
+];
+const EX_TYPES=[{id:"ME",label:"ME",color:"#5fa8e8"},{id:"ACO",label:"ACO",color:"#4ade80"},{id:"OTHER",label:"Other",color:"#fbbf24"}];
+const EX_PRESETS=["Example Proxy 1","Example Proxy 2"];
+
+const EX_DROP_1={
+  id:"drop_example_1",
+  name:"Example Drop — Sneaker A",
+  date:new Date(Date.now()-7*86400000).toISOString().split("T")[0],
+  site:"Example Site",
+  recap:"This is an example drop showing what a successful run looks like. Site held up well, no captcha issues, queue moved quickly.",
+  tags:["successful"],
+  data:{
+    1:{taskProxy:"Example Proxy 1",queProxy:"Example Proxy 2",checkouts:"180",notes:"clean run"},
+    2:{taskProxy:"Example Proxy 1",queProxy:"Example Proxy 2",checkouts:"165",notes:""},
+    3:{taskProxy:"Example Proxy 2",queProxy:"Example Proxy 1",checkouts:"140",notes:""},
+    4:{taskProxy:"Example Proxy 2",queProxy:"Example Proxy 1",checkouts:"120",notes:"some declines"},
+    101:{taskProxy:"Example Proxy 1",queProxy:"Example Proxy 2",checkouts:"95",notes:""},
+  },
+  createdAt:Date.now()-7*86400000,
+  savedAt:Date.now()-7*86400000
+};
+
+const EX_DROP_2={
+  id:"drop_example_2",
+  name:"Example Drop — Sneaker B",
+  date:new Date(Date.now()-2*86400000).toISOString().split("T")[0],
+  site:"Example Site",
+  recap:"Tougher drop — site was slow, queue lasted 25 min. Hit rate lower than usual.",
+  tags:["flop"],
+  data:{
+    1:{taskProxy:"Example Proxy 1",queProxy:"Example Proxy 2",checkouts:"22",notes:"queue stuck"},
+    2:{taskProxy:"Example Proxy 1",queProxy:"Example Proxy 2",checkouts:"18",notes:""},
+    3:{taskProxy:"Example Proxy 2",queProxy:"Example Proxy 1",checkouts:"15",notes:""},
+    4:{taskProxy:"Example Proxy 2",queProxy:"Example Proxy 1",checkouts:"10",notes:""},
+    101:{taskProxy:"Example Proxy 1",queProxy:"Example Proxy 2",checkouts:"8",notes:""},
+  },
+  createdAt:Date.now()-2*86400000,
+  savedAt:Date.now()-2*86400000
+};
+
+const EX_DROPS={};
+EX_DROPS[EX_DROP_1.id]=EX_DROP_1;
+EX_DROPS[EX_DROP_2.id]=EX_DROP_2;
+
+// Defaults used by ls() when nothing is in storage yet
+const DEF_REFRACTS=EX_REFRACTS;
+const DEF_SHIKARI=EX_SHIKARI;
+const DEF_ACCTS=EX_ACCTS;
+const DEF_TYPES=EX_TYPES;
+
+let refracts=[],shikaris=[],acctGroups=[],acctTypes=[],proxyPresets=[],serverPresets=[],defaults={tasks:3000},templates={},currentData={},currentDropId=null,editMode=false;
+let currentTags=[];
+let dupTargetId=null,dupOption=1,analyticsDropFilter="";
+let uiState={hideUnused:false,collapsed:{refract:false,shikari:false,proxyPresets:false,serverPresets:false},timelineView:"drop"};
+
+function ls(k,d){try{const s=localStorage.getItem(k);return s?JSON.parse(s):JSON.parse(JSON.stringify(d));}catch{return JSON.parse(JSON.stringify(d));}}
+function ss(k,v){localStorage.setItem(k,JSON.stringify(v));}
+function loadDrops(){try{const s=localStorage.getItem(SK_DROPS);return s?JSON.parse(s):JSON.parse(JSON.stringify(EX_DROPS));}catch{return JSON.parse(JSON.stringify(EX_DROPS));}}
+function saveDrops(d){ss(SK_DROPS,d);}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ── First-load: seed example drops if no storage exists ──
+if(!localStorage.getItem(SK_DROPS))saveDrops(EX_DROPS);
+if(!localStorage.getItem(SK_PRESETS))ss(SK_PRESETS,EX_PRESETS);
+
+/* ── AUTOSAVE ── */
+let autosaveTimer=null;
+function showAutosaveStatus(state){
+  ["autosaveIndicator","autosaveIndicatorAccounts","autosaveIndicatorAnalytics"].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    if(state==="saving"){el.textContent="Saving...";el.className="autosave-indicator saving";}
+    else if(state==="saved"){el.textContent="Saved";el.className="autosave-indicator";}
+    else if(state==="error"){el.textContent="Save failed";el.className="autosave-indicator error";}
+  });
+}
+function flashSaved(){showAutosaveStatus("saving");setTimeout(()=>showAutosaveStatus("saved"),200);}
+let isDirty=false;
+function markDirty(){isDirty=true;}function markClean(){isDirty=false;}
+window.addEventListener("beforeunload",function(e){if(isDirty){e.preventDefault();e.returnValue="";return"";}});
+
+function autoSave(){
+  if(autosaveTimer)clearTimeout(autosaveTimer);
+  showAutosaveStatus("saving");markDirty();
+  autosaveTimer=setTimeout(()=>{
+    try{
+      const name=document.getElementById("dropName").value.trim()||"Unnamed Drop";
+      const date=document.getElementById("dropDate").value||new Date().toISOString().split("T")[0];
+      const site=document.getElementById("dropSite").value.trim()||"";
+      const recap=document.getElementById("dropRecap").value;
+      const id=currentDropId||`drop_${Date.now()}`;currentDropId=id;
+      const drops=loadDrops();
+      const existing=drops[id]||{};
+      drops[id]={id,name,date,site,recap,tags:[...currentTags],data:JSON.parse(JSON.stringify(currentData)),createdAt:existing.createdAt||Date.now(),savedAt:Date.now()};
+      saveDrops(drops);showAutosaveStatus("saved");markClean();renderHistory();
+    }catch{showAutosaveStatus("error");}
+  },400);
+}
+
+function switchTab(tab){
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelector('.tab-'+tab).classList.add('active');
+  document.getElementById('page-'+tab).classList.add('active');
+  if(tab==='accounts')renderAccounts();
+  if(tab==='analytics')renderAnalytics();
+}
+
+/* ── ACCOUNTS ── */
+function saveAccts(){ss(SK_ACCTS,acctGroups);flashSaved();}
+function saveTypes(){ss(SK_TYPES,acctTypes);flashSaved();}
+function typeOptionsHtml(id){return acctTypes.map(t=>`<option value="${esc(t.id)}" ${id===t.id?'selected':''}>${esc(t.label)}</option>`).join("");}
+function getType(id){return acctTypes.find(t=>t.id===id);}
+function acctGroupOptions(id){let o=`<option value="">— none —</option>`;acctGroups.forEach(g=>{o+=`<option value="${g.id}" ${id===g.id?'selected':''}>${esc(g.name)} (${(g.count||0).toLocaleString()})</option>`;});return o;}
+function getGroupType(id){const g=acctGroups.find(a=>a.id===id);return g?g.type:(acctTypes[0]?.id||null);}
+function getGroupName(id){const g=acctGroups.find(a=>a.id===id);return g?g.name:"—";}
+function computeAutoRatio(acctGroupId){if(!acctGroupId)return"—";const c=[...refracts,...shikaris].filter(r=>r.acctGroupId===acctGroupId).length;return c>0?`${c}:1`:"—";}
+const RATIO_PALETTE=["#5fa8e8","#f472b6","#4ade80","#fbbf24","#a78bfa","#fb923c","#22d3ee","#f87171","#facc15","#34d399","#c084fc","#fca5a5"];
+function getRatioColor(ratio){
+  if(!ratio||ratio==="—")return"#666";
+  // Hash the ratio string to a stable index in the palette
+  let h=0;for(let i=0;i<ratio.length;i++)h=(h*31+ratio.charCodeAt(i))>>>0;
+  return RATIO_PALETTE[h%RATIO_PALETTE.length];
+}
+
+function addAcctGroup(){
+  const name=document.getElementById("newAcctName").value.trim();
+  if(!name){showToast("Enter a group name",true);return;}
+  const type=document.getElementById("newAcctType").value;
+  const count=parseInt(document.getElementById("newAcctCount").value)||0;
+  const range=document.getElementById("newAcctRange").value.trim();
+  acctGroups.push({id:"ag_"+Date.now(),name,type,count,range});
+  saveAccts();
+  document.getElementById("newAcctName").value="";document.getElementById("newAcctCount").value="";document.getElementById("newAcctRange").value="";
+  renderAccounts();renderAll();updateSubtitle();showToast(`Added: ${name}`);
+}
+
+function moveAcctGroup(idx,direction){
+  const newIdx=idx+direction;
+  if(newIdx<0||newIdx>=acctGroups.length)return;
+  const tmp=acctGroups[idx];
+  acctGroups[idx]=acctGroups[newIdx];
+  acctGroups[newIdx]=tmp;
+  saveAccts();
+  renderAccounts();
+  renderAll();
+}
+
+function deleteAcctGroup(id){
+  if(!confirm("Delete this account group?"))return;
+  acctGroups=acctGroups.filter(a=>a.id!==id);
+  [...refracts,...shikaris].forEach(r=>{if(r.acctGroupId===id)r.acctGroupId=null;});
+  saveAccts();ss(SK_CFG_R,refracts);ss(SK_CFG_S,shikaris);
+  renderAccounts();renderAll();updateSubtitle();showToast("Group deleted");
+}
+
+function updateAcctField(id,field,val){
+  const g=acctGroups.find(a=>a.id===id);
+  if(g){g[field]=field==='count'?(parseInt(val)||0):val;saveAccts();}
+  if(field==='name'||field==='count'){renderAcctStats();updateSubtitle();}
+}
+
+function renderAccounts(){
+  renderAcctStats();renderTypesEditor();
+  const tbody=document.getElementById("acctBody");
+  if(!acctGroups.length){tbody.innerHTML=`<tr><td colspan="5" style="color:#555;font-size:12px;padding:16px 14px;font-family:'IBM Plex Mono',monospace;">No account groups yet. Add one below.</td></tr>`;return;}
+  tbody.innerHTML=acctGroups.map((g,idx)=>`<tr>
+    <td><input class="acct-inline" style="width:160px" value="${esc(g.name)}" oninput="updateAcctField('${g.id}','name',this.value)"></td>
+    <td><select class="type-sel" onchange="updateAcctField('${g.id}','type',this.value);renderAll()">${typeOptionsHtml(g.type)}</select></td>
+    <td><input class="acct-inline" style="width:120px" type="number" value="${g.count||0}" oninput="updateAcctField('${g.id}','count',this.value)"></td>
+    <td><input class="acct-inline" style="width:220px" value="${esc(g.range||'')}" placeholder="e.g. 1–6000" oninput="updateAcctField('${g.id}','range',this.value)"></td>
+    <td><div class="row-actions-cell">
+      <button class="move-btn" onclick="moveAcctGroup(${idx},-1)" ${idx===0?'disabled':''} title="Move up">▲</button>
+      <button class="move-btn" onclick="moveAcctGroup(${idx},1)" ${idx===acctGroups.length-1?'disabled':''} title="Move down">▼</button>
+      <button class="del-acct-btn" onclick="deleteAcctGroup('${g.id}')">✕</button>
+    </div></td>
+  </tr>`).join("");
+  const addSel=document.getElementById("newAcctType");
+  const cur=addSel.value;
+  addSel.innerHTML=typeOptionsHtml(cur||acctTypes[0]?.id);
+}
+
+function renderTypesEditor(){
+  const wrap=document.getElementById("typesEditor");if(!wrap)return;
+  wrap.innerHTML=acctTypes.map((t,idx)=>`<div class="type-row">
+    <input class="acct-inline" style="width:140px" value="${esc(t.label)}" oninput="updateType(${idx},'label',this.value)" placeholder="Type name">
+    <input type="color" value="${esc(t.color||'#fbbf24')}" oninput="updateType(${idx},'color',this.value)" style="width:36px;height:28px;border:1px solid #2a2a2a;background:#141414;border-radius:4px;padding:2px;cursor:pointer">
+    <button class="del-acct-btn" onclick="deleteType(${idx})" title="Delete type">✕</button>
+  </div>`).join("")+`<div class="type-row" style="margin-top:8px">
+    <input class="acct-inline" id="newTypeName" style="width:140px" placeholder="New type name" onkeydown="if(event.key==='Enter')addType()">
+    <button class="btn primary" onclick="addType()" style="font-size:10px;padding:5px 10px">+ Add Type</button>
+  </div>`;
+}
+
+function addType(){
+  const inp=document.getElementById("newTypeName");
+  const label=inp.value.trim();
+  if(!label){showToast("Enter a type name",true);return;}
+  const id="t_"+Date.now();
+  const palette=["#5fa8e8","#4ade80","#fbbf24","#a78bfa","#f87171","#fb923c","#22d3ee","#f472b6"];
+  const color=palette[acctTypes.length%palette.length];
+  acctTypes.push({id,label,color});saveTypes();
+  inp.value="";renderAccounts();renderAll();updateSubtitle();showToast(`Added type: ${label}`);
+}
+function updateType(idx,field,val){if(!acctTypes[idx])return;acctTypes[idx][field]=val;saveTypes();if(field==='label'||field==='color'){renderAcctStats();renderAll();}}
+function deleteType(idx){
+  if(acctTypes.length<=1){showToast("Need at least one type",true);return;}
+  const t=acctTypes[idx];
+  if(!confirm(`Delete type "${t.label}"? Account groups using it will be reassigned.`))return;
+  const replacement=acctTypes[0].id===t.id?acctTypes[1].id:acctTypes[0].id;
+  acctGroups.forEach(g=>{if(g.type===t.id)g.type=replacement;});
+  acctTypes.splice(idx,1);saveTypes();saveAccts();
+  renderAccounts();renderAll();updateSubtitle();showToast(`Deleted type: ${t.label}`);
+}
+
+function renderAcctStats(){
+  const totals={};
+  acctTypes.forEach(t=>{totals[t.id]={t,count:acctGroups.filter(g=>g.type===t.id).reduce((s,g)=>s+(g.count||0),0),groups:acctGroups.filter(g=>g.type===t.id).length};});
+  const grand=Object.values(totals).reduce((s,o)=>s+o.count,0);
+  document.getElementById("acctSubtitle").textContent=`${acctGroups.length} group${acctGroups.length!==1?'s':''} · ${grand.toLocaleString()} total accounts`;
+  let cards=`<div class="stat-card"><div class="stat-label">Total Accounts</div><div class="stat-value green">${grand.toLocaleString()}</div><div class="stat-sub">all groups</div></div>`;
+  acctTypes.forEach(t=>{const o=totals[t.id];cards+=`<div class="stat-card"><div class="stat-label">${esc(t.label)} Accounts</div><div class="stat-value" style="color:${esc(t.color||'#fff')}">${o.count.toLocaleString()}</div><div class="stat-sub">${o.groups} group(s)</div></div>`;});
+  const stats=document.getElementById("acctStats");stats.style.gridTemplateColumns=`repeat(${1+acctTypes.length},1fr)`;stats.innerHTML=cards;
+}
+
+/* ── TAGS ── */
+function tagClass(t){if(t==='successful')return'successful';if(t==='flop')return'flop';return'custom';}
+function renderTags(){document.getElementById("tagsCurrent").innerHTML=currentTags.map(t=>`<span class="tag-chip ${tagClass(t)}">${esc(t)}<span class="tag-chip-x" onclick="removeTag('${esc(t)}')">×</span></span>`).join("");}
+function addTag(t){if(!currentTags.includes(t))currentTags.push(t);renderTags();autoSave();}
+function removeTag(t){currentTags=currentTags.filter(x=>x!==t);renderTags();autoSave();}
+function addCustomTag(){const inp=document.getElementById("customTagInput");const v=inp.value.trim().toLowerCase();if(!v)return;if(!currentTags.includes(v))currentTags.push(v);inp.value="";renderTags();autoSave();}
+
+/* ── PROXY PRESETS ── */
+function saveProxyPresets(){ss(SK_PRESETS,proxyPresets);flashSaved();renderProxyDatalist();}
+function renderProxyDatalist(){const dl=document.getElementById("proxyDatalist");if(dl)dl.innerHTML=proxyPresets.map(p=>`<option value="${esc(p)}">`).join("");}
+function renderProxyPresets(){
+  const wrap=document.getElementById("proxyPresetsList");if(!wrap)return;
+  const countEl=document.getElementById("proxyPresetsCount");
+  if(countEl)countEl.textContent=proxyPresets.length?`(${proxyPresets.length})`:'';
+  if(!proxyPresets.length){wrap.innerHTML=`<div style="color:#555;font-size:11px;font-family:'IBM Plex Mono',monospace;">No presets yet.</div>`;return;}
+  const sorted=[...proxyPresets].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
+  wrap.innerHTML=sorted.map(p=>`<span class="preset-tag">${esc(p)}<span class="x" onclick="removeProxyPresetByValue('${esc(p).replace(/'/g,"\\'")}')">×</span></span>`).join("");
+}
+function addProxyPreset(){
+  const inp=document.getElementById("newProxyPreset");const v=inp.value.trim();
+  if(!v){showToast("Enter a preset",true);return;}
+  if(proxyPresets.includes(v)){showToast("Already exists",true);return;}
+  proxyPresets.push(v);saveProxyPresets();inp.value="";renderProxyPresets();showToast(`Added: ${v}`);
+}
+function removeProxyPresetByValue(val){const idx=proxyPresets.indexOf(val);if(idx>-1){proxyPresets.splice(idx,1);saveProxyPresets();renderProxyPresets();}}
+function removeProxyPreset(idx){proxyPresets.splice(idx,1);saveProxyPresets();renderProxyPresets();}
+
+/* ── SERVER PRESETS ── */
+function saveServerPresets(){ss(SK_SERVER_PRESETS,serverPresets);flashSaved();renderServerDatalist();}
+function renderServerDatalist(){const dl=document.getElementById("serverDatalist");if(dl)dl.innerHTML=serverPresets.map(p=>`<option value="${esc(p)}">`).join("");}
+function renderServerPresets(){
+  const wrap=document.getElementById("serverPresetsList");if(!wrap)return;
+  const countEl=document.getElementById("serverPresetsCount");
+  if(countEl)countEl.textContent=serverPresets.length?`(${serverPresets.length})`:'';
+  if(!serverPresets.length){wrap.innerHTML=`<div style="color:#555;font-size:11px;font-family:'IBM Plex Mono',monospace;">No presets yet.</div>`;return;}
+  const sorted=[...serverPresets].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base',numeric:true}));
+  wrap.innerHTML=sorted.map(p=>`<span class="preset-tag">${esc(p)}<span class="x" onclick="removeServerPresetByValue('${esc(p).replace(/'/g,"\\'")}')">×</span></span>`).join("");
+}
+function removeServerPresetByValue(val){const idx=serverPresets.indexOf(val);if(idx>-1){serverPresets.splice(idx,1);saveServerPresets();renderServerPresets();}}
+function addServerPreset(){
+  const inp=document.getElementById("newServerPreset");const v=inp.value.trim();
+  if(!v){showToast("Enter a preset",true);return;}
+  if(serverPresets.includes(v)){showToast("Already exists",true);return;}
+  serverPresets.push(v);saveServerPresets();inp.value="";renderServerPresets();showToast(`Added: ${v}`);
+}
+function removeServerPreset(idx){serverPresets.splice(idx,1);saveServerPresets();renderServerPresets();}
+
+/* ── DEFAULTS ── */
+function saveDefaults(){ss(SK_DEFAULTS,defaults);flashSaved();}
+function updateDefaults(){const v=parseInt(document.getElementById("defaultTasks").value)||3000;defaults.tasks=v;saveDefaults();}
+
+/* ── COLLAPSE / HIDE UNUSED ── */
+function saveUI(){ss(SK_UI,uiState);}
+function toggleSection(s){uiState.collapsed[s]=!uiState.collapsed[s];saveUI();applyCollapse();applyPresetCollapse();}
+function applyCollapse(){
+  document.getElementById("refractHeader").classList.toggle("section-collapsed",uiState.collapsed.refract);
+  document.getElementById("refractWrap").style.display=uiState.collapsed.refract?"none":"";
+  document.getElementById("shikariHeader").classList.toggle("section-collapsed",uiState.collapsed.shikari);
+  document.getElementById("shikariWrap").style.display=uiState.collapsed.shikari?"none":"";
+  document.querySelector("#refractHeader .section-collapse").textContent=uiState.collapsed.refract?"▸":"▾";
+  document.querySelector("#shikariHeader .section-collapse").textContent=uiState.collapsed.shikari?"▸":"▾";
+}
+function togglePresetSection(which){const key=which==='proxy'?'proxyPresets':'serverPresets';uiState.collapsed[key]=!uiState.collapsed[key];saveUI();applyPresetCollapse();}
+function setTimelineView(v){uiState.timelineView=v;saveUI();renderAnalytics();}
+function setAnalyticsFilter(id){analyticsDropFilter=id||"";renderAnalytics();}
+function viewDropStats(id){analyticsDropFilter=id;switchTab('analytics');}
+function applyPresetCollapse(){
+  const proxyWrap=document.getElementById("proxyPresetsWrap");
+  const serverWrap=document.getElementById("serverPresetsWrap");
+  if(proxyWrap)proxyWrap.classList.toggle("preset-collapsed",!!uiState.collapsed.proxyPresets);
+  if(serverWrap)serverWrap.classList.toggle("preset-collapsed",!!uiState.collapsed.serverPresets);
+}
+function toggleHideUnused(){uiState.hideUnused=document.getElementById("hideUnusedToggle").checked;saveUI();applyHideUnused();}
+function applyHideUnused(){
+  document.querySelectorAll("#refractBody tr, #shikariBody tr").forEach(tr=>{
+    const hrCell=tr.querySelector(".hit-rate");if(!hrCell)return;
+    const m=hrCell.id.match(/hr_(\d+)/);if(!m)return;
+    const id=parseInt(m[1]);
+    const co=parseInt(currentData[id]?.checkouts)||0;
+    if(uiState.hideUnused && co===0)tr.classList.add("row-hidden");
+    else tr.classList.remove("row-hidden");
+  });
+}
+
+/* ── TEMPLATES ── */
+function saveTemplates(){ss(SK_TEMPLATES,templates);flashSaved();}
+function saveAsTemplate(){
+  const nameInp=document.getElementById("newTemplateName");
+  const name=nameInp.value.trim();
+  if(!name){showToast("Enter a template name",true);return;}
+  const id="tpl_"+Date.now();
+  const tplData={};
+  [...refracts,...shikaris].forEach(r=>{const d=currentData[r.id]||{};tplData[r.id]={taskProxy:d.taskProxy||"",queProxy:d.queProxy||"",notes:d.notes||""};});
+  templates[id]={id,name,createdAt:Date.now(),refractConfig:JSON.parse(JSON.stringify(refracts)),shikariConfig:JSON.parse(JSON.stringify(shikaris)),data:tplData};
+  saveTemplates();nameInp.value="";renderTemplates();showToast(`Template saved: ${name}`);
+}
+function applyTemplate(id){
+  const tpl=templates[id];if(!tpl)return;
+  if(!confirm(`Apply template "${tpl.name}"? This will start a new drop and overwrite the current one's data.`))return;
+  if(tpl.refractConfig)refracts=JSON.parse(JSON.stringify(tpl.refractConfig));
+  if(tpl.shikariConfig)shikaris=JSON.parse(JSON.stringify(tpl.shikariConfig));
+  ss(SK_CFG_R,refracts);ss(SK_CFG_S,shikaris);
+  currentDropId=null;currentTags=[];initData();
+  Object.keys(tpl.data||{}).forEach(rid=>{
+    if(currentData[rid]){
+      currentData[rid].taskProxy=tpl.data[rid].taskProxy||"";
+      currentData[rid].queProxy=tpl.data[rid].queProxy||"";
+      currentData[rid].notes=tpl.data[rid].notes||"";
+    }
+  });
+  document.getElementById("dropName").value="";
+  document.getElementById("dropDate").value=new Date().toISOString().split("T")[0];
+  document.getElementById("dropSite").value="";
+  document.getElementById("dropRecap").value="";
+  renderAll();renderHistory();renderTags();showToast(`Applied: ${tpl.name}`);
+}
+function deleteTemplate(id,e){if(e&&e.stopPropagation)e.stopPropagation();const t=templates[id];if(!t)return;if(!confirm(`Delete template "${t.name}"?`))return;delete templates[id];saveTemplates();renderTemplates();showToast("Template deleted");}
+function renderTemplates(){
+  const grid=document.getElementById("templatesGrid");if(!grid)return;
+  const keys=Object.keys(templates).sort((a,b)=>(templates[b].createdAt||0)-(templates[a].createdAt||0));
+  if(!keys.length){grid.innerHTML=`<div class="empty-state compact"><div class="empty-icon">📋</div><div class="empty-title">No templates yet</div><div class="empty-desc">Set up a drop the way you like, type a name above, and click "+ Save current as template" to reuse it later.</div></div>`;return;}
+  grid.innerHTML=keys.map(id=>{const t=templates[id];return `<div class="template-card" onclick="applyTemplate('${id}')">
+    <div class="tc-name">${esc(t.name)}</div>
+    <div class="tc-meta">${t.refractConfig?.length||0} refract · ${t.shikariConfig?.length||0} shikari</div>
+    <div class="tc-actions"><span class="hc-btn" onclick="event.stopPropagation();applyTemplate('${id}')">Apply</span><span class="hc-btn del" onclick="deleteTemplate('${id}',event)">Delete</span></div>
+  </div>`;}).join("");
+}
+
+/* ── COMPARE ── */
+function openCompareModal(){
+  const drops=loadDrops();
+  const keys=Object.keys(drops).sort((a,b)=>(drops[b].savedAt||0)-(drops[a].savedAt||0));
+  if(keys.length<2){showToast("Need at least 2 saved drops to compare",true);return;}
+  const opts=keys.map(id=>`<option value="${id}">${esc(drops[id].name)} (${drops[id].date})</option>`).join("");
+  document.getElementById("compareA").innerHTML=opts;
+  document.getElementById("compareB").innerHTML=opts;
+  document.getElementById("compareB").value=keys[1];
+  renderCompare();
+  document.getElementById("compareModal").classList.add("visible");
+}
+function closeCompareModal(){document.getElementById("compareModal").classList.remove("visible");}
+function renderCompare(){
+  const drops=loadDrops();
+  const a=drops[document.getElementById("compareA").value];
+  const b=drops[document.getElementById("compareB").value];
+  if(!a||!b)return;
+  const allRows=[...refracts,...shikaris];
+  function calc(d){
+    const total=allRows.reduce((s,r)=>s+(parseInt(d.data?.[r.id]?.checkouts)||0),0);
+    const tasks=allRows.reduce((s,r)=>s+(parseInt(r.tasks)||3000),0);
+    const refractCo=refracts.reduce((s,r)=>s+(parseInt(d.data?.[r.id]?.checkouts)||0),0);
+    const shikariCo=shikaris.reduce((s,r)=>s+(parseInt(d.data?.[r.id]?.checkouts)||0),0);
+    return {total,tasks,refractCo,shikariCo,hr:tasks>0?(total/tasks*100).toFixed(2):0};
+  }
+  const sa=calc(a);const sb=calc(b);
+  function cmp(av,bv){if(av===bv)return['tie','tie'];return av>bv?['winner','loser']:['loser','winner'];}
+  const [c1a,c1b]=cmp(sa.total,sb.total);const [c2a,c2b]=cmp(sa.refractCo,sb.refractCo);const [c3a,c3b]=cmp(sa.shikariCo,sb.shikariCo);const [c4a,c4b]=cmp(parseFloat(sa.hr),parseFloat(sb.hr));
+  let html=`<table class="compare-table"><thead><tr><th>Metric</th><th>${esc(a.name)}</th><th>${esc(b.name)}</th><th>Difference</th></tr></thead><tbody>
+    <tr><td>Date</td><td>${a.date}</td><td>${b.date}</td><td>—</td></tr>
+    <tr><td>Site</td><td>${esc(a.site||'—')}</td><td>${esc(b.site||'—')}</td><td>—</td></tr>
+    <tr><td>Total Checkouts</td><td class="${c1a}">${sa.total}</td><td class="${c1b}">${sb.total}</td><td>${(sa.total-sb.total>=0?'+':'')+(sa.total-sb.total)}</td></tr>
+    <tr><td>Refract Checkouts</td><td class="${c2a}">${sa.refractCo}</td><td class="${c2b}">${sb.refractCo}</td><td>${(sa.refractCo-sb.refractCo>=0?'+':'')+(sa.refractCo-sb.refractCo)}</td></tr>
+    <tr><td>Shikari Checkouts</td><td class="${c3a}">${sa.shikariCo}</td><td class="${c3b}">${sb.shikariCo}</td><td>${(sa.shikariCo-sb.shikariCo>=0?'+':'')+(sa.shikariCo-sb.shikariCo)}</td></tr>
+    <tr><td>Hit Rate</td><td class="${c4a}">${sa.hr}%</td><td class="${c4b}">${sb.hr}%</td><td>${(parseFloat(sa.hr)-parseFloat(sb.hr)>=0?'+':'')+(parseFloat(sa.hr)-parseFloat(sb.hr)).toFixed(2)}%</td></tr>
+    <tr><td>Tags</td><td>${(a.tags||[]).map(t=>`<span class="hc-tag ${tagClass(t)}">${esc(t)}</span>`).join(' ')||'—'}</td><td>${(b.tags||[]).map(t=>`<span class="hc-tag ${tagClass(t)}">${esc(t)}</span>`).join(' ')||'—'}</td><td>—</td></tr>
+  </tbody></table><div style="margin-top:18px"><div class="chart-title">Per-instance breakdown</div></div><table class="compare-table" style="margin-top:8px"><thead><tr><th>Instance</th><th>Server</th><th>${esc(a.name)}</th><th>${esc(b.name)}</th><th>Δ</th></tr></thead><tbody>`;
+  allRows.forEach(r=>{const av=parseInt(a.data?.[r.id]?.checkouts)||0;const bv=parseInt(b.data?.[r.id]?.checkouts)||0;const [ca,cb]=cmp(av,bv);html+=`<tr><td>${esc(r.label)}</td><td style="color:#aaa">${esc(r.server||'—')}</td><td class="${ca}">${av}</td><td class="${cb}">${bv}</td><td>${(av-bv>=0?'+':'')+(av-bv)}</td></tr>`;});
+  html+=`</tbody></table>`;
+  document.getElementById("compareContent").innerHTML=html;
+}
+
+function showToast(msg,isError=false){const t=document.getElementById("toast");t.textContent=msg;t.className="toast"+(isError?" error":"");t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2500);}
+function formatRelative(ts){if(!ts)return"—";const diff=Date.now()-ts;const m=Math.floor(diff/60000);if(m<1)return"just now";if(m<60)return m+" min ago";const h=Math.floor(m/60);if(h<24)return h+"h ago";const days=Math.floor(h/24);if(days<7)return days+"d ago";return new Date(ts).toLocaleDateString();}
+
+/* ── ANALYTICS ── */
+function buildDropStats(){
+  const drops=loadDrops();const keys=Object.keys(drops);const allRows=[...refracts,...shikaris];
+  return keys.map(id=>{
+    const d=drops[id];
+    const totalCo=allRows.reduce((s,r)=>s+(parseInt(d.data?.[r.id]?.checkouts)||0),0);
+    const totalTasks=allRows.reduce((s,r)=>s+(parseInt(r.tasks)||3000),0);
+    const refractCo=refracts.reduce((s,r)=>s+(parseInt(d.data?.[r.id]?.checkouts)||0),0);
+    const shikariCo=shikaris.reduce((s,r)=>s+(parseInt(d.data?.[r.id]?.checkouts)||0),0);
+    const t1Id=acctTypes[0]?.id;
+    const meCo=refracts.filter(r=>getGroupType(r.acctGroupId)===t1Id).reduce((s,r)=>s+(parseInt(d.data?.[r.id]?.checkouts)||0),0);
+    const acoCo=refracts.filter(r=>getGroupType(r.acctGroupId)!==t1Id).reduce((s,r)=>s+(parseInt(d.data?.[r.id]?.checkouts)||0),0);
+    const hr=totalTasks>0?(totalCo/totalTasks*100):0;
+    return {id,name:d.name,date:d.date,site:d.site||"",tags:d.tags||[],totalCo,refractCo,shikariCo,meCo,acoCo,hr:parseFloat(hr.toFixed(2)),data:d.data};
+  });
+}
+
+function renderAnalytics(){
+  const allDrops=loadDrops();const allKeys=Object.keys(allDrops);
+  const content=document.getElementById("analyticsContent");
+  const sub=document.getElementById("analyticsSub");
+  const filterSel=document.getElementById("analyticsFilter");
+  if(filterSel){
+    const sortedKeys=[...allKeys].sort((a,b)=>(allDrops[b].savedAt||0)-(allDrops[a].savedAt||0));
+    filterSel.innerHTML=`<option value="">All drops (${allKeys.length})</option>`+sortedKeys.map(id=>`<option value="${id}" ${analyticsDropFilter===id?'selected':''}>${esc(allDrops[id].name)} (${allDrops[id].date})</option>`).join("");
+    if(analyticsDropFilter && !allDrops[analyticsDropFilter])analyticsDropFilter="";
+    filterSel.value=analyticsDropFilter;
+  }
+  const drops=analyticsDropFilter && allDrops[analyticsDropFilter]?{[analyticsDropFilter]:allDrops[analyticsDropFilter]}:allDrops;
+  const keys=Object.keys(drops);
+  const isSingleDrop=!!analyticsDropFilter;
+  if(!allKeys.length){sub.textContent="No drops saved yet.";content.innerHTML=`<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">No analytics yet</div><div class="empty-desc">Once you save your first drop, this page fills up with charts, hit rates, and trends across all your runs.</div><button class="btn primary empty-cta" onclick="switchTab('drops')">Go to Drops</button></div>`;return;}
+  sub.textContent=isSingleDrop?`Showing: ${esc(allDrops[analyticsDropFilter].name)} (${allDrops[analyticsDropFilter].date})`:`${keys.length} drop${keys.length!==1?'s':''} analyzed`;
+  const dropStats=Object.keys(drops).map(id=>{const d=drops[id];const allRows=[...refracts,...shikaris];const totalCo=allRows.reduce((s,r)=>s+(parseInt(d.data?.[r.id]?.checkouts)||0),0);const totalTasks=allRows.reduce((s,r)=>s+(parseInt(r.tasks)||3000),0);const refractCo=refracts.reduce((s,r)=>s+(parseInt(d.data?.[r.id]?.checkouts)||0),0);const shikariCo=shikaris.reduce((s,r)=>s+(parseInt(d.data?.[r.id]?.checkouts)||0),0);const t1Id=acctTypes[0]?.id;const meCo=refracts.filter(r=>getGroupType(r.acctGroupId)===t1Id).reduce((s,r)=>s+(parseInt(d.data?.[r.id]?.checkouts)||0),0);const acoCo=refracts.filter(r=>getGroupType(r.acctGroupId)!==t1Id).reduce((s,r)=>s+(parseInt(d.data?.[r.id]?.checkouts)||0),0);const hr=totalTasks>0?(totalCo/totalTasks*100):0;return {id,name:d.name,date:d.date,site:d.site||"",tags:d.tags||[],totalCo,refractCo,shikariCo,meCo,acoCo,hr:parseFloat(hr.toFixed(2)),data:d.data};});
+  const totalAllDrops=dropStats.reduce((s,d)=>s+d.totalCo,0);
+  const avgHr=(dropStats.reduce((s,d)=>s+d.hr,0)/dropStats.length).toFixed(2);
+  const avgCo=(totalAllDrops/dropStats.length).toFixed(1);
+  const avgRefract=(dropStats.reduce((s,d)=>s+d.refractCo,0)/dropStats.length).toFixed(1);
+  const avgShikari=(dropStats.reduce((s,d)=>s+d.shikariCo,0)/dropStats.length).toFixed(1);
+  const bestDrop=dropStats.reduce((a,b)=>a.totalCo>b.totalCo?a:b);
+  const worstDrop=dropStats.reduce((a,b)=>a.totalCo<b.totalCo?a:b);
+  const bestHrDrop=dropStats.reduce((a,b)=>a.hr>b.hr?a:b);
+
+  const refractTotals=refracts.map(r=>{const total=keys.reduce((s,id)=>s+(parseInt(drops[id]?.data?.[r.id]?.checkouts)||0),0);return {label:r.label,server:r.server,total};}).sort((a,b)=>b.total-a.total);
+  const maxRT=refractTotals[0]?.total||1;
+  const shikariTotals=shikaris.map(r=>{const total=keys.reduce((s,id)=>s+(parseInt(drops[id]?.data?.[r.id]?.checkouts)||0),0);return {label:r.label,server:r.server,total};}).sort((a,b)=>b.total-a.total);
+  const maxST=shikariTotals[0]?.total||1;
+
+  const groupTotals=acctGroups.map(g=>{
+    const total=keys.reduce((s,id)=>{const d=drops[id];return s+[...refracts,...shikaris].filter(r=>r.acctGroupId===g.id).reduce((ss,r)=>ss+(parseInt(d.data?.[r.id]?.checkouts)||0),0);},0);
+    const hits=keys.reduce((s,id)=>{const rows=[...refracts,...shikaris].filter(r=>r.acctGroupId===g.id);return s+rows.reduce((ss,r)=>ss+(parseInt(r.tasks)||3000),0);},0);
+    return {name:g.name,type:g.type,count:g.count||0,total,hr:parseFloat((hits>0?total/hits*100:0).toFixed(2))};
+  }).filter(g=>g.total>0).sort((a,b)=>b.total-a.total);
+  const maxGT=groupTotals[0]?.total||1;
+
+  const siteMap={};dropStats.forEach(d=>{const s=d.site||"(no site)";if(!siteMap[s])siteMap[s]={site:s,total:0,drops:0};siteMap[s].total+=d.totalCo;siteMap[s].drops+=1;});
+  const siteTotals=Object.values(siteMap).sort((a,b)=>b.total-a.total);
+  const maxSite=siteTotals[0]?.total||1;
+
+  // Proxy performance — 3-way split
+  const refractTaskOnly={};
+  const refractQue={};
+  const shikariProxies={};
+  Object.values(drops).forEach(d=>{
+    refracts.forEach(r=>{
+      const row=d.data?.[r.id]||{};const co=parseInt(row.checkouts)||0;const tp=(row.taskProxy||"").trim();const qp=(row.queProxy||"").trim();const tasks=parseInt(r.tasks)||3000;
+      if(qp){if(!refractQue[qp])refractQue[qp]={proxy:qp,total:0,tasks:0,uses:0,taskProxies:{}};refractQue[qp].total+=co;refractQue[qp].tasks+=tasks;refractQue[qp].uses+=1;if(tp)refractQue[qp].taskProxies[tp]=(refractQue[qp].taskProxies[tp]||0)+1;}
+      else if(tp){if(!refractTaskOnly[tp])refractTaskOnly[tp]={proxy:tp,total:0,tasks:0,uses:0};refractTaskOnly[tp].total+=co;refractTaskOnly[tp].tasks+=tasks;refractTaskOnly[tp].uses+=1;}
+    });
+    shikaris.forEach(r=>{const row=d.data?.[r.id]||{};const co=parseInt(row.checkouts)||0;const tp=(row.taskProxy||"").trim();if(tp){if(!shikariProxies[tp])shikariProxies[tp]={proxy:tp,total:0,tasks:0,uses:0};shikariProxies[tp].total+=co;shikariProxies[tp].tasks+=parseInt(r.tasks)||3000;shikariProxies[tp].uses+=1;}});
+  });
+  const refractTaskOnlyArr=Object.values(refractTaskOnly).map(p=>({...p,hr:p.tasks>0?parseFloat((p.total/p.tasks*100).toFixed(2)):0})).sort((a,b)=>b.total-a.total);
+  const refractQueArr=Object.values(refractQue).map(p=>({...p,hr:p.tasks>0?parseFloat((p.total/p.tasks*100).toFixed(2)):0,pairedList:Object.entries(p.taskProxies).sort((a,b)=>b[1]-a[1]).map(([tp,c])=>`${tp} (${c}×)`).join(", ")})).sort((a,b)=>b.total-a.total);
+  const shikariProxiesArr=Object.values(shikariProxies).map(p=>({...p,hr:p.tasks>0?parseFloat((p.total/p.tasks*100).toFixed(2)):0})).sort((a,b)=>b.total-a.total);
+  const maxRTO=refractTaskOnlyArr[0]?.total||1;
+  const maxRQ=refractQueArr[0]?.total||1;
+  const maxSP=shikariProxiesArr[0]?.total||1;
+
+  // Combined proxy chart
+  const combinedMap={};
+  function addToCombined(p,role){if(!combinedMap[p.proxy])combinedMap[p.proxy]={proxy:p.proxy,total:0,tasks:0,uses:0,roles:{refractTask:0,refractQue:0,shikari:0}};combinedMap[p.proxy].total+=p.total;combinedMap[p.proxy].tasks+=p.tasks;combinedMap[p.proxy].uses+=p.uses;combinedMap[p.proxy].roles[role]+=p.total;}
+  refractTaskOnlyArr.forEach(p=>addToCombined(p,'refractTask'));
+  refractQueArr.forEach(p=>addToCombined(p,'refractQue'));
+  shikariProxiesArr.forEach(p=>addToCombined(p,'shikari'));
+  const combinedArr=Object.values(combinedMap).map(p=>({...p,hr:p.tasks>0?parseFloat((p.total/p.tasks*100).toFixed(2)):0})).sort((a,b)=>b.total-a.total);
+  const maxCombined=combinedArr[0]?.total||1;
+
+  content.innerHTML=`
+    <div class="summary-grid" style="grid-template-columns:repeat(4,1fr)">
+      <div class="stat-card"><div class="stat-label">${isSingleDrop?'Total Checkouts':'Total Checkouts (All Drops)'}</div><div class="stat-value green">${totalAllDrops}</div><div class="stat-sub">${isSingleDrop?'this drop':keys.length+' drops'}</div></div>
+      ${isSingleDrop?`<div class="stat-card"><div class="stat-label">Refract Checkouts</div><div class="stat-value blue">${dropStats[0].refractCo}</div><div class="stat-sub">refract only</div></div><div class="stat-card"><div class="stat-label">Shikari Checkouts</div><div class="stat-value purple">${dropStats[0].shikariCo}</div><div class="stat-sub">shikari only</div></div><div class="stat-card"><div class="stat-label">Hit Rate</div><div class="stat-value yellow">${dropStats[0].hr}%</div><div class="stat-sub">checkouts / tasks</div></div>`:`<div class="stat-card"><div class="stat-label">Avg Checkouts / Drop</div><div class="stat-value">${avgCo}</div><div class="stat-sub">refract + shikari</div></div><div class="stat-card"><div class="stat-label">Avg Refract / Drop</div><div class="stat-value blue">${avgRefract}</div><div class="stat-sub">refract only</div></div><div class="stat-card"><div class="stat-label">Avg Shikari / Drop</div><div class="stat-value purple">${avgShikari}</div><div class="stat-sub">shikari only</div></div>`}
+    </div>
+    ${isSingleDrop?'':`<div class="summary-grid" style="grid-template-columns:repeat(4,1fr)">
+      <div class="stat-card"><div class="stat-label">Avg Hit Rate</div><div class="stat-value yellow">${avgHr}%</div><div class="stat-sub">across all drops</div></div>
+      <div class="stat-card"><div class="stat-label">Best Drop</div><div class="stat-value" style="font-size:14px;margin-top:4px;">${esc(bestDrop.name)}</div><div class="stat-sub">${bestDrop.totalCo} checkouts</div></div>
+      <div class="stat-card"><div class="stat-label">Best Hit Rate</div><div class="stat-value" style="font-size:14px;margin-top:4px;">${esc(bestHrDrop.name)}</div><div class="stat-sub">${bestHrDrop.hr}%</div></div>
+      <div class="stat-card"><div class="stat-label">Worst Drop</div><div class="stat-value" style="font-size:14px;margin-top:4px;color:#f87171">${esc(worstDrop.name)}</div><div class="stat-sub">${worstDrop.totalCo} checkouts</div></div>
+    </div>
+
+    <div class="chart-card" style="margin-bottom:20px;">
+      <div class="chart-title">Drop Comparison</div>
+      <table class="drop-compare-table">
+        <thead><tr><th>Rank</th><th>Drop</th><th>Date</th><th>Site</th><th>Tags</th><th>Total</th><th>Refract</th><th>Shikari</th><th>Hit Rate</th></tr></thead>
+        <tbody>${[...dropStats].sort((a,b)=>b.totalCo-a.totalCo).map((d,i)=>`<tr>
+          <td class="${i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':''}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1)}</td>
+          <td style="color:#fff;font-weight:500">${esc(d.name)}</td>
+          <td>${d.date}</td>
+          <td>${esc(d.site)||'—'}</td>
+          <td>${d.tags.length?d.tags.map(t=>`<span class="hc-tag ${tagClass(t)}">${esc(t)}</span>`).join(' '):'—'}</td>
+          <td style="color:#4ade80;font-weight:600">${d.totalCo}</td>
+          <td style="color:#5fa8e8">${d.refractCo}</td>
+          <td style="color:#a78bfa">${d.shikariCo}</td>
+          <td style="color:#fbbf24">${d.hr}%</td>
+        </tr>`).join("")}</tbody>
+      </table>
+    </div>`}
+
+    <div class="analytics-grid">
+      <div class="chart-card"><div class="chart-title">Refract Performance (All Drops)</div>${refractTotals.map(r=>`<div class="bar-row"><div class="bar-label" title="${esc(r.server)}">${esc(r.label)}</div><div class="bar-track"><div class="bar-fill" style="width:${maxRT>0?(r.total/maxRT*100):0}%;background:linear-gradient(90deg,#1a4570,#2a6aaa)"><span class="bar-val">${r.total}</span></div></div><div class="bar-pct">${maxRT>0?(r.total/maxRT*100).toFixed(0):0}%</div></div>`).join("")}</div>
+      <div class="chart-card"><div class="chart-title">Shikari Performance (All Drops)</div>${shikariTotals.length?shikariTotals.map(r=>`<div class="bar-row"><div class="bar-label" title="${esc(r.server)}">${esc(r.label)}</div><div class="bar-track"><div class="bar-fill" style="width:${maxST>0?(r.total/maxST*100):0}%;background:linear-gradient(90deg,#3d2a6e,#6a4aaa)"><span class="bar-val">${r.total}</span></div></div><div class="bar-pct">${maxST>0?(r.total/maxST*100).toFixed(0):0}%</div></div>`).join(""):'<div style="color:#555;font-size:12px;font-family:\'IBM Plex Mono\',monospace;">No Shikari data yet.</div>'}</div>
+    </div>
+
+    <div class="analytics-grid" style="${isSingleDrop?'grid-template-columns:1fr':''}">
+      <div class="chart-card"><div class="chart-title">Account Group Performance</div>${groupTotals.length?groupTotals.map(g=>{const t=getType(g.type);const col=t?t.color:'#888';return `<div class="bar-row"><div class="bar-label" title="${esc(t?t.label:g.type)}">${esc(g.name)}</div><div class="bar-track"><div class="bar-fill" style="width:${(g.total/maxGT*100).toFixed(1)}%;background:${col}"><span class="bar-val">${g.total}</span></div></div><div class="bar-pct" style="color:#fbbf24">${g.hr}%</div></div>`;}).join(""):'<div style="color:#555;font-size:12px;font-family:\'IBM Plex Mono\',monospace;">No data yet.</div>'}</div>
+      ${isSingleDrop?'':`<div class="chart-card"><div class="chart-title">Site Performance</div>${siteTotals.map(s=>`<div class="bar-row"><div class="bar-label">${esc(s.site)}</div><div class="bar-track"><div class="bar-fill" style="width:${(s.total/maxSite*100).toFixed(1)}%;background:linear-gradient(90deg,#5a3a00,#aa7700)"><span class="bar-val">${s.total}</span></div></div><div class="bar-pct">${s.drops} drop${s.drops!==1?'s':''}</div></div>`).join("")}</div>`}
+    </div>
+
+    <div class="chart-card" style="margin-bottom:20px"><div class="chart-title">Refract — Task Proxy (no Que Proxy)</div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#888;margin-bottom:12px">Refract rows where only Task Proxy was set.</div>${refractTaskOnlyArr.length?refractTaskOnlyArr.map(p=>`<div class="bar-row"><div class="bar-label" title="${esc(p.proxy)} · used ${p.uses}× across drops">${esc(p.proxy)}</div><div class="bar-track"><div class="bar-fill" style="width:${(p.total/maxRTO*100).toFixed(1)}%;background:linear-gradient(90deg,#1a4570,#5fa8e8)"><span class="bar-val">${p.total}</span></div></div><div class="bar-pct" style="color:#fbbf24">${p.hr}%</div></div>`).join(""):'<div style="color:#555;font-size:12px;font-family:\'IBM Plex Mono\',monospace;">No data — fill Task Proxy on a refract (with Que Proxy left blank) to see this.</div>'}</div>
+
+    <div class="chart-card" style="margin-bottom:20px"><div class="chart-title">Refract — Que Proxy (paired with Task Proxy)</div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#888;margin-bottom:12px">Refract rows where Que Proxy was set. The "w/" line shows the Task Proxy(s) it was paired with.</div>${refractQueArr.length?refractQueArr.map(p=>`<div class="bar-row" style="align-items:flex-start"><div class="bar-label" style="display:flex;flex-direction:column;align-items:flex-start;width:200px;line-height:1.3;padding-top:2px"><div>${esc(p.proxy)}</div>${p.pairedList?`<div style="font-size:9px;color:#888;font-weight:400">w/ ${esc(p.pairedList)}</div>`:''}</div><div class="bar-track" style="margin-top:2px"><div class="bar-fill" style="width:${(p.total/maxRQ*100).toFixed(1)}%;background:linear-gradient(90deg,#3d2a6e,#a78bfa)"><span class="bar-val">${p.total}</span></div></div><div class="bar-pct" style="color:#fbbf24;padding-top:4px">${p.hr}%</div></div>`).join(""):'<div style="color:#555;font-size:12px;font-family:\'IBM Plex Mono\',monospace;">No data — fill Que Proxy on a refract to see this.</div>'}</div>
+
+    <div class="chart-card" style="margin-bottom:20px"><div class="chart-title">Shikari — Proxy</div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#888;margin-bottom:12px">Shikari Proxy field only (Fallback Proxy ignored).</div>${shikariProxiesArr.length?shikariProxiesArr.map(p=>`<div class="bar-row"><div class="bar-label" title="${esc(p.proxy)} · used ${p.uses}× across drops">${esc(p.proxy)}</div><div class="bar-track"><div class="bar-fill" style="width:${(p.total/maxSP*100).toFixed(1)}%;background:linear-gradient(90deg,#0f3320,#4ade80)"><span class="bar-val">${p.total}</span></div></div><div class="bar-pct" style="color:#fbbf24">${p.hr}%</div></div>`).join(""):'<div style="color:#555;font-size:12px;font-family:\'IBM Plex Mono\',monospace;">No data — fill Proxy on a shikari to see this.</div>'}</div>
+
+    <div class="chart-card" style="margin-bottom:20px"><div class="chart-title">All Proxies — Combined</div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#888;margin-bottom:12px">All proxies merged across all roles (Refract Task, Refract Que, Shikari). Hover a bar for the role breakdown.</div>${combinedArr.length?combinedArr.map(p=>{const breakdown=[];if(p.roles.refractTask>0)breakdown.push(`Refract Task: ${p.roles.refractTask}`);if(p.roles.refractQue>0)breakdown.push(`Refract Que: ${p.roles.refractQue}`);if(p.roles.shikari>0)breakdown.push(`Shikari: ${p.roles.shikari}`);return `<div class="bar-row"><div class="bar-label" title="${esc(p.proxy)} · ${breakdown.join(' · ')} · used ${p.uses}×">${esc(p.proxy)}</div><div class="bar-track"><div class="bar-fill" style="width:${(p.total/maxCombined*100).toFixed(1)}%;background:linear-gradient(90deg,#3a3000,#fbbf24)"><span class="bar-val">${p.total}</span></div></div><div class="bar-pct" style="color:#fbbf24">${p.hr}%</div></div>`;}).join(""):'<div style="color:#555;font-size:12px;font-family:\'IBM Plex Mono\',monospace;">No proxy data yet.</div>'}</div>
+
+    ${isSingleDrop?'':`<div class="chart-card"><div class="chart-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><span>Checkouts Timeline</span><div class="timeline-toggle"><button class="tl-btn ${(uiState.timelineView||'drop')==='drop'?'active':''}" onclick="setTimelineView('drop')">Per Drop</button><button class="tl-btn ${uiState.timelineView==='week'?'active':''}" onclick="setTimelineView('week')">Weekly</button><button class="tl-btn ${uiState.timelineView==='month'?'active':''}" onclick="setTimelineView('month')">Monthly</button></div></div>${(()=>{
+      const view=uiState.timelineView||'drop';
+      if(view==='drop'){const sorted=[...dropStats].sort((a,b)=>a.date.localeCompare(b.date));const maxCo=Math.max(...sorted.map(d=>d.totalCo),1);return sorted.map(d=>`<div class="bar-row"><div class="bar-label" title="${esc(d.name)} · ${d.date}">${esc(d.name.length>16?d.name.slice(0,16)+'…':d.name)}</div><div class="bar-track"><div class="bar-fill" style="width:${(d.totalCo/maxCo*100).toFixed(1)}%;background:linear-gradient(90deg,#0f3320,#1a6a40)"><span class="bar-val">${d.totalCo}</span></div></div><div class="bar-pct" style="color:#fbbf24">${d.hr}%</div></div>`).join("");}
+      const buckets={};
+      dropStats.forEach(d=>{const dt=new Date(d.date);if(isNaN(dt))return;let key;if(view==='month'){key=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;}else{const tmp=new Date(Date.UTC(dt.getFullYear(),dt.getMonth(),dt.getDate()));const day=tmp.getUTCDay()||7;tmp.setUTCDate(tmp.getUTCDate()+1-day);key=tmp.toISOString().split('T')[0];}if(!buckets[key])buckets[key]={key,total:0,drops:0};buckets[key].total+=d.totalCo;buckets[key].drops+=1;});
+      const totalTasks=[...refracts,...shikaris].reduce((s,r)=>s+(parseInt(r.tasks)||3000),0);
+      const arr=Object.values(buckets).sort((a,b)=>a.key.localeCompare(b.key));
+      if(!arr.length)return '<div style="color:#555;font-size:12px;font-family:\'IBM Plex Mono\',monospace;">No data yet.</div>';
+      const maxCo=Math.max(...arr.map(b=>b.total),1);
+      return arr.map(b=>{const hr=b.drops>0&&totalTasks>0?(b.total/(totalTasks*b.drops)*100).toFixed(2):'—';let label=b.key;if(view==='month'){const [y,m]=b.key.split('-');label=new Date(parseInt(y),parseInt(m)-1,1).toLocaleString(undefined,{month:'short',year:'numeric'});}else{label=`Week of ${new Date(b.key).toLocaleDateString(undefined,{month:'short',day:'numeric'})}`;}return `<div class="bar-row"><div class="bar-label" title="${b.drops} drop${b.drops!==1?'s':''}">${esc(label)}</div><div class="bar-track"><div class="bar-fill" style="width:${(b.total/maxCo*100).toFixed(1)}%;background:linear-gradient(90deg,#0f3320,#1a6a40)"><span class="bar-val">${b.total}</span></div></div><div class="bar-pct" style="color:#fbbf24">${b.drops}d · ${hr}%</div></div>`;}).join("");
+    })()}</div>`}`;
+}
+
+/* ── CSV ── */
+function csvEscape(v){const s=String(v??"");if(s.includes(",")||s.includes('"')||s.includes("\n"))return '"'+s.replace(/"/g,'""')+'"';return s;}
+function exportAnalyticsCsv(){
+  const drops=loadDrops();if(!Object.keys(drops).length){showToast("No drops to export",true);return;}
+  const dropStats=buildDropStats();
+  const lines=[];
+  lines.push("DROP SUMMARY");
+  lines.push(["Drop Name","Date","Site","Tags","Total Checkouts","Refract Checkouts","Shikari Checkouts","Hit Rate %"].map(csvEscape).join(","));
+  dropStats.sort((a,b)=>b.date.localeCompare(a.date)).forEach(d=>{lines.push([d.name,d.date,d.site,(d.tags||[]).join("|"),d.totalCo,d.refractCo,d.shikariCo,d.hr].map(csvEscape).join(","));});
+  lines.push("");lines.push("PER-INSTANCE BREAKDOWN");
+  lines.push(["Drop Name","Date","Site","Bot Type","Instance #","Server","Account Group","Tasks","Ratio","Proxy 1","Proxy 2","Checkouts","Hit Rate %","Notes"].map(csvEscape).join(","));
+  Object.values(drops).sort((a,b)=>b.date.localeCompare(a.date)).forEach(d=>{
+    [...refracts.map(r=>['Refract',r]),...shikaris.map(r=>['Shikari',r])].forEach(([type,r])=>{
+      const row=d.data?.[r.id]||{};const co=parseInt(row.checkouts)||0;const tasks=parseInt(r.tasks)||3000;
+      const hr=co>0?(co/tasks*100).toFixed(2):"0.00";
+      lines.push([d.name,d.date,d.site||"",type,r.label||r.id,r.server||"",getGroupName(r.acctGroupId),tasks,r.ratio||"",row.taskProxy||"",row.queProxy||"",co,hr,row.notes||""].map(csvEscape).join(","));
+    });
+  });
+  const blob=new Blob([lines.join("\n")],{type:"text/csv"});
+  const url=URL.createObjectURL(blob);const a=document.createElement("a");
+  a.href=url;a.download=`stat_tracker_analytics_${new Date().toISOString().split("T")[0]}.csv`;a.click();
+  URL.revokeObjectURL(url);showToast("CSV exported");
+}
+
+/* ── EDIT MODE ── */
+function toggleEditMode(){
+  editMode=!editMode;document.body.classList.toggle("em",editMode);
+  const btn=document.getElementById("editBtn");const ban=document.getElementById("editBanner");
+  if(editMode){btn.textContent="✓ Done Editing";btn.className="btn edit-on";ban.classList.add("visible");}
+  else{btn.textContent="✎ Edit Setup";btn.className="btn edit-off";ban.classList.remove("visible");ss(SK_CFG_R,refracts);ss(SK_CFG_S,shikaris);updateSubtitle();flashSaved();showToast("Setup saved");}
+}
+
+function updateSubtitle(){
+  const rt=refracts.reduce((s,r)=>s+(parseInt(r.tasks)||0),0);
+  const st=shikaris.reduce((s,r)=>s+(parseInt(r.tasks)||0),0);
+  const ta=acctGroups.reduce((s,g)=>s+(g.count||0),0);
+  const breakdown=acctTypes.map(t=>{const c=acctGroups.filter(g=>g.type===t.id).reduce((s,g)=>s+(g.count||0),0);return `${esc(t.label)}: ${c.toLocaleString()}`;}).join(" · ");
+  document.getElementById("headerSubtitle").innerHTML=`<div class="subtitle-line">Refract: ${refracts.length} instances · ${rt.toLocaleString()} tasks</div><div class="subtitle-line">Shikari: ${shikaris.length} instances · ${st.toLocaleString()} tasks</div><div class="subtitle-line">Accounts: ${ta.toLocaleString()} total${breakdown?' ('+breakdown+')':''}</div>`;
+  document.getElementById("refractSub").textContent=`${refracts.length} instances · ${rt.toLocaleString()} tasks`;
+  document.getElementById("shikariSub").textContent=`${shikaris.length} instances · ${st.toLocaleString()} tasks`;
+}
+
+/* ── TABLE ── */
+function buildRows(list,tbodyId,prefix){
+  const tbody=document.getElementById(tbodyId);let html="";
+  list.forEach((r,idx)=>{
+    const d=currentData[r.id]||{};
+    const gType=getGroupType(r.acctGroupId);
+    const sc=prefix==="s"?"section-shi":(gType===acctTypes[0]?.id?"section-me":"section-aco");
+    const tasks=parseInt(r.tasks)||3000;
+    const co=parseInt(d.checkouts)||0;
+    const hr=co>0?((co/tasks)*100).toFixed(2)+"%":"—";
+    const hrc=co===0?"tbd":co/tasks>0.05?"good":co/tasks>0.02?"ok":"bad";
+    html+=`<tr class="${sc}">
+      <td><input class="num-input" value="${esc(r.label||r.id)}" oninput="setF('${prefix}',${idx},'label',this.value)"></td>
+      <td><input class="setup-input" list="serverDatalist" style="width:150px" value="${esc(r.server)}" oninput="setF('${prefix}',${idx},'server',this.value)"></td>
+      <td><input class="setup-input" style="width:95px" value="${esc(r.bot)}" oninput="setF('${prefix}',${idx},'bot',this.value)"></td>
+      <td><select class="acct-select" onchange="setF('${prefix}',${idx},'acctGroupId',this.value||null);renderAll()">${acctGroupOptions(r.acctGroupId)}</select></td>
+      <td><input class="setup-input" style="width:52px" value="${esc(r.tasks||3000)}" oninput="setF('${prefix}',${idx},'tasks',parseInt(this.value)||0);calcStats()"></td>
+      <td>${(()=>{const _r=computeAutoRatio(r.acctGroupId);return `<span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:${getRatioColor(_r)};font-weight:600">${esc(_r)}</span>`;})()}</td>
+      <td><input class="cell-input" list="proxyDatalist" placeholder="—" value="${esc(d.taskProxy||'')}" oninput="setD(${r.id},'taskProxy',this.value)"></td>
+      <td><input class="cell-input" list="proxyDatalist" placeholder="—" value="${esc(d.queProxy||'')}" oninput="setD(${r.id},'queProxy',this.value)"></td>
+      <td><input class="cell-input" placeholder="0" value="${esc(d.checkouts||'')}" oninput="setD(${r.id},'checkouts',this.value);calcStats()"></td>
+      <td class="hit-rate ${hrc}" id="hr_${r.id}">${hr}</td>
+      <td><input class="cell-input notes-input" placeholder="—" value="${esc(d.notes||'')}" oninput="setD(${r.id},'notes',this.value)"></td>
+      <td><button class="del-row-btn" onclick="deleteRow('${prefix}',${idx})">✕</button></td>
+    </tr>`;
+  });
+  const hl=prefix==="s"?"hl-purple":"hl-green";
+  html+=`<tr class="totals-row"><td colspan="8" style="text-align:right;padding-right:16px;color:#aaa;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Totals</td><td class="${hl}" id="totalCo_${prefix}">0</td><td id="totalHr_${prefix}">—</td><td colspan="2"></td></tr>`;
+  tbody.innerHTML=html;
+}
+
+function renderAll(){buildRows(refracts,"refractBody","r");buildRows(shikaris,"shikariBody","s");calcStats();updateSubtitle();applyHideUnused();}
+function setF(p,idx,f,v){const l=p==="r"?refracts:shikaris;if(l[idx])l[idx][f]=v;autoSave();}
+function setD(id,f,v){if(!currentData[id])currentData[id]={};currentData[id][f]=v;autoSave();}
+
+function addRow(p){
+  const list=p==="r"?refracts:shikaris;const ids=[...refracts,...shikaris].map(r=>r.id);
+  const newId=ids.length?Math.max(...ids)+1:1;const num=list.length+1;
+  list.push({id:newId,label:p==="r"?`R${num}`:`S${num}`,server:"New Server",bot:p==="r"?`REFRACT ${num}`:`SHIKARI ${num}`,acctGroupId:null,tasks:(defaults.tasks||3000),ratio:"4:1"});
+  currentData[newId]={taskProxy:"",queProxy:"",checkouts:"",notes:""};renderAll();
+}
+
+function deleteRow(p,idx){const l=p==="r"?refracts:shikaris;if(l.length<=1){showToast("Can't delete last row");return;}const id=l[idx].id;l.splice(idx,1);delete currentData[id];renderAll();}
+function initData(){currentData={};[...refracts,...shikaris].forEach(r=>{currentData[r.id]={taskProxy:"",queProxy:"",checkouts:"",notes:""};});}
+
+function calcStats(){
+  const t1Id=acctTypes[0]?.id;const t2Id=acctTypes[1]?.id;
+  let totalCo=0,t1Co=0,t2Co=0,shikariCo=0,refractCo=0;
+  function pr(list,p){
+    let rCo=0,rT=0;
+    list.forEach(r=>{
+      const d=currentData[r.id]||{};const co=parseInt(d.checkouts)||0;const t=parseInt(r.tasks)||3000;
+      rCo+=co;rT+=t;totalCo+=co;
+      const gT=getGroupType(r.acctGroupId);
+      if(p==="s")shikariCo+=co;else{refractCo+=co;if(gT===t1Id)t1Co+=co;else if(gT===t2Id)t2Co+=co;}
+      const el=document.getElementById(`hr_${r.id}`);
+      if(el){el.textContent=co>0?((co/t)*100).toFixed(2)+"%":"—";el.className="hit-rate "+(co===0?"tbd":co/t>0.05?"good":co/t>0.02?"ok":"bad");}
+    });
+    const c=document.getElementById(`totalCo_${p}`);const h=document.getElementById(`totalHr_${p}`);
+    if(c)c.textContent=rCo;if(h)h.textContent=rCo>0?((rCo/rT)*100).toFixed(2)+"%":"—";
+  }
+  pr(refracts,"r");pr(shikaris,"s");
+  document.getElementById("statTotal").textContent=totalCo;
+  const t1Label=acctTypes[0]?acctTypes[0].label:"Type 1";
+  const t2Label=acctTypes[1]?acctTypes[1].label:"Type 2";
+  document.getElementById("statMeLabel").textContent=`${t1Label} Checkouts`;
+  document.getElementById("statMeSub").textContent=`${t1Label.toLowerCase()} accounts`;
+  document.getElementById("statAcoLabel").textContent=`${t2Label} Checkouts`;
+  document.getElementById("statAcoSub").textContent=`${t2Label.toLowerCase()} accounts`;
+  document.getElementById("statMe").textContent=t1Co;
+  document.getElementById("statAco").textContent=t2Co;
+  document.getElementById("statRefract").textContent=refractCo;
+  document.getElementById("statShikari").textContent=shikariCo;
+  const all=[...refracts,...shikaris].reduce((s,r)=>s+(parseInt(r.tasks)||3000),0);
+  document.getElementById("statHitRate").textContent=totalCo>0?((totalCo/all)*100).toFixed(2)+"%":"—";
+  if(uiState.hideUnused)applyHideUnused();
+}
+
+/* ── DUPLICATE ── */
+function openDupModal(id){dupTargetId=id;dupOption=1;document.getElementById("dupModalSub").textContent=`Duplicating: ${loadDrops()[id]?.name||'drop'}`;selectDupOpt(1);document.getElementById("dupModal").classList.add("visible");}
+function closeDupModal(){document.getElementById("dupModal").classList.remove("visible");dupTargetId=null;}
+function selectDupOpt(n){dupOption=n;document.getElementById("dupOpt1").classList.toggle("selected",n===1);document.getElementById("dupOpt2").classList.toggle("selected",n===2);}
+function confirmDuplicate(){
+  if(!dupTargetId)return;
+  const drops=loadDrops();const src=drops[dupTargetId];if(!src)return;
+  const newId=`drop_${Date.now()}`;const newData={};
+  [...refracts,...shikaris].forEach(r=>{const sr=src.data?.[r.id]||{};if(dupOption===2)newData[r.id]={taskProxy:sr.taskProxy||"",queProxy:sr.queProxy||"",checkouts:"",notes:sr.notes||""};else newData[r.id]={taskProxy:"",queProxy:"",checkouts:"",notes:""};});
+  drops[newId]={id:newId,name:`${src.name} (copy)`,date:new Date().toISOString().split("T")[0],site:src.site||"",tags:[],data:newData,savedAt:Date.now()};
+  saveDrops(drops);closeDupModal();
+  currentDropId=newId;currentTags=[];
+  document.getElementById("dropName").value=drops[newId].name;
+  document.getElementById("dropDate").value=drops[newId].date;
+  document.getElementById("dropSite").value=drops[newId].site||"";
+  document.getElementById("dropRecap").value="";
+  currentData=JSON.parse(JSON.stringify(newData));
+  renderAll();renderHistory();renderTags();showToast(`Duplicated: ${src.name}`);
+}
+
+/* ── EXPORT/IMPORT ── */
+function exportData(){
+  const payload={version:7,exportedAt:new Date().toISOString(),refractConfig:refracts,shikariConfig:shikaris,acctGroups,acctTypes,proxyPresets,serverPresets,defaults,templates,drops:loadDrops()};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);const a=document.createElement("a");
+  a.href=url;a.download=`stat_tracker_backup_${new Date().toISOString().split("T")[0]}.json`;a.click();
+  URL.revokeObjectURL(url);showToast("Exported successfully");
+}
+function importData(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const p=JSON.parse(e.target.result);if(!p.drops)throw new Error("invalid");
+      const n=Object.keys(p.drops).length;
+      if(!confirm(`Import ${n} drop(s) + setup? Merges with existing data.`))return;
+      saveDrops({...loadDrops(),...p.drops});
+      if(p.refractConfig?.length){refracts=p.refractConfig;ss(SK_CFG_R,refracts);}
+      if(p.shikariConfig?.length){shikaris=p.shikariConfig;ss(SK_CFG_S,shikaris);}
+      if(p.acctGroups?.length){acctGroups=p.acctGroups;ss(SK_ACCTS,acctGroups);}
+      if(p.acctTypes?.length){acctTypes=p.acctTypes;ss(SK_TYPES,acctTypes);}
+      if(p.proxyPresets?.length){proxyPresets=p.proxyPresets;ss(SK_PRESETS,proxyPresets);}
+      if(p.serverPresets?.length){serverPresets=p.serverPresets;ss(SK_SERVER_PRESETS,serverPresets);}
+      if(p.defaults){defaults={...defaults,...p.defaults};ss(SK_DEFAULTS,defaults);}
+      if(p.templates&&Object.keys(p.templates).length){templates={...templates,...p.templates};ss(SK_TEMPLATES,templates);}
+      initData();renderAll();renderHistory();renderAccounts();renderProxyPresets();renderProxyDatalist();renderServerPresets();renderServerDatalist();renderTemplates();
+      const dt=document.getElementById("defaultTasks");if(dt)dt.value=defaults.tasks||3000;
+      showToast(`Imported ${n} drop(s)`);
+    }catch{showToast("Import failed — invalid file",true);}
+  };
+  reader.readAsText(file);event.target.value="";
+}
+
+/* ── DROPS ── */
+function saveDrop(){
+  const name=document.getElementById("dropName").value.trim()||"Unnamed Drop";
+  const date=document.getElementById("dropDate").value||new Date().toISOString().split("T")[0];
+  const site=document.getElementById("dropSite").value.trim()||"";
+  const recap=document.getElementById("dropRecap").value;
+  const id=currentDropId||`drop_${Date.now()}`;currentDropId=id;
+  const drops=loadDrops();const existing=drops[id]||{};
+  drops[id]={id,name,date,site,recap,tags:[...currentTags],data:JSON.parse(JSON.stringify(currentData)),createdAt:existing.createdAt||Date.now(),savedAt:Date.now()};
+  saveDrops(drops);renderHistory();showToast(`Saved: ${name}`);
+}
+
+function loadDrop(id){
+  const drops=loadDrops();const d=drops[id];if(!d)return;
+  currentDropId=id;currentTags=[...(d.tags||[])];
+  document.getElementById("dropName").value=d.name;
+  document.getElementById("dropDate").value=d.date;
+  document.getElementById("dropSite").value=d.site||"";
+  document.getElementById("dropRecap").value=d.recap||"";
+  currentData=JSON.parse(JSON.stringify(d.data));
+  [...refracts,...shikaris].forEach(r=>{if(!currentData[r.id])currentData[r.id]={taskProxy:"",queProxy:"",checkouts:"",notes:""};});
+  renderAll();renderHistory();renderTags();
+}
+
+function deleteDrop(id,e){if(e&&e.stopPropagation)e.stopPropagation();const drops=loadDrops();const name=drops[id]?.name||"this drop";if(!confirm(`Delete "${name}"?`))return;delete drops[id];saveDrops(drops);if(currentDropId===id){currentDropId=null;currentTags=[];initData();renderAll();renderTags();document.getElementById("dropRecap").value="";}renderHistory();showToast("Drop deleted");}
+
+function newDrop(){
+  currentDropId=null;currentTags=[];initData();
+  document.getElementById("dropName").value="";
+  document.getElementById("dropDate").value=new Date().toISOString().split("T")[0];
+  document.getElementById("dropSite").value="";
+  document.getElementById("dropRecap").value="";
+  renderAll();renderHistory();renderTags();
+}
+
+function clearInputs(){if(!confirm("Clear all drop data?"))return;initData();document.getElementById("dropRecap").value="";renderAll();}
+function clearFilters(){document.getElementById("searchInput").value="";document.getElementById("filterTag").value="";document.getElementById("filterSite").value="";document.getElementById("sortBy").value="newest";renderHistory();}
+
+function renderHistory(){
+  const drops=loadDrops();const grid=document.getElementById("historyGrid");
+  let keys=Object.keys(drops);
+  const siteSelect=document.getElementById("filterSite");
+  const sites=[...new Set(Object.values(drops).map(d=>d.site).filter(Boolean))].sort();
+  const currentSite=siteSelect.value;
+  siteSelect.innerHTML=`<option value="">All sites</option>`+sites.map(s=>`<option value="${esc(s)}" ${s===currentSite?'selected':''}>${esc(s)}</option>`).join("");
+  const search=document.getElementById("searchInput").value.toLowerCase().trim();
+  const tagFilter=document.getElementById("filterTag").value;
+  const siteFilter=document.getElementById("filterSite").value;
+  const sortBy=document.getElementById("sortBy").value;
+  keys=keys.filter(id=>{
+    const d=drops[id];
+    if(search){const hay=`${d.name||''} ${d.site||''} ${(d.tags||[]).join(' ')}`.toLowerCase();if(!hay.includes(search))return false;}
+    if(tagFilter){if(tagFilter==='__custom__'){const customs=(d.tags||[]).filter(t=>t!=='successful'&&t!=='flop');if(!customs.length)return false;}else if(!(d.tags||[]).includes(tagFilter))return false;}
+    if(siteFilter && (d.site||'')!==siteFilter)return false;
+    return true;
+  });
+  const allRows=[...refracts,...shikaris];
+  const totalTasks=allRows.reduce((s,r)=>s+(parseInt(r.tasks)||3000),0);
+  function totalCo(d){return allRows.reduce((s,r)=>s+(parseInt(d.data?.[r.id]?.checkouts)||0),0);}
+  function hr(d){const c=totalCo(d);return totalTasks>0?(c/totalTasks*100):0;}
+  if(sortBy==='newest')keys.sort((a,b)=>(drops[b].savedAt||0)-(drops[a].savedAt||0));
+  else if(sortBy==='oldest')keys.sort((a,b)=>(drops[a].savedAt||0)-(drops[b].savedAt||0));
+  else if(sortBy==='best')keys.sort((a,b)=>totalCo(drops[b])-totalCo(drops[a]));
+  else if(sortBy==='hr')keys.sort((a,b)=>hr(drops[b])-hr(drops[a]));
+  if(!keys.length){const hasAnyDrops=Object.keys(drops).length>0;if(hasAnyDrops){grid.innerHTML=`<div class="empty-state compact"><div class="empty-icon">🔍</div><div class="empty-title">No drops match your filters</div><div class="empty-desc">Try adjusting your search, tag, or site filters.</div><button class="btn empty-cta" onclick="clearFilters()">Reset Filters</button></div>`;}else{grid.innerHTML=`<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-title">No drops yet</div><div class="empty-desc">Run a drop, fill in your checkouts above, and hit Save Drop. Your history will live here.</div></div>`;}return;}
+  grid.innerHTML=keys.map(id=>{
+    const d=drops[id];const co=totalCo(d);
+    const hrV=totalTasks>0?(co/totalTasks*100).toFixed(2):0;
+    const hrCol=parseFloat(hrV)>5?'#4ade80':parseFloat(hrV)>2?'#fbbf24':'#f87171';
+    const tags=(d.tags||[]);
+    return `<div class="history-card ${currentDropId===id?'active':''}" onclick="loadDrop('${id}')">
+      <div class="hc-name">${esc(d.name)}</div>
+      <div class="hc-meta">${d.date}${d.site?' · '+esc(d.site):''}</div>
+      <div class="hc-checkouts">${co} <span style="font-size:11px;color:#aaa;">checkouts</span></div>
+      <div class="hc-hr" style="color:${hrCol}">${hrV}% hit rate</div>
+      ${tags.length?`<div class="hc-tags">${tags.map(t=>`<span class="hc-tag ${tagClass(t)}">${esc(t)}</span>`).join("")}</div>`:''}
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#666;margin-top:6px">Last edited: ${formatRelative(d.savedAt)}</div>
+      <div class="hc-actions">
+        <span class="hc-btn" onclick="loadDrop('${id}')">Load</span>
+        <span class="hc-btn" style="color:#4ade80" onclick="event.stopPropagation();viewDropStats('${id}')" title="View this drop in Analytics">📊</span>
+        <span class="hc-btn dup" onclick="event.stopPropagation();openDupModal('${id}')">Duplicate</span>
+        <span class="hc-btn del" onclick="event.stopPropagation();deleteDrop('${id}',event)">Delete</span>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+/* ── RESET ── */
+function resetAll(){
+  if(!confirm("⚠ This will permanently DELETE all your drops, history, account groups, types, presets, and templates.\n\nThis cannot be undone.\n\nAre you sure?"))return;
+  if(!confirm("Last warning — really wipe everything?"))return;
+  // Clean starter state — explicit values prevent example data from re-seeding on reload
+  const CLEAN_REFRACTS=[
+    {id:1,label:"R1",server:"",bot:"",acctGroupId:"",tasks:3000,ratio:""},
+    {id:2,label:"R2",server:"",bot:"",acctGroupId:"",tasks:3000,ratio:""},
+    {id:3,label:"R3",server:"",bot:"",acctGroupId:"",tasks:3000,ratio:""},
+    {id:4,label:"R4",server:"",bot:"",acctGroupId:"",tasks:3000,ratio:""}
+  ];
+  const CLEAN_SHIKARI=[{id:101,label:"S1",server:"",bot:"",acctGroupId:"",tasks:3000,ratio:""}];
+  const CLEAN_ACCTS=[{id:"ag1",name:"My Accounts",type:"ME",count:0,range:""}];
+  const CLEAN_TYPES=[
+    {id:"ME",label:"ME",color:"#5fa8e8"},
+    {id:"ACO",label:"ACO",color:"#4ade80"},
+    {id:"OTHER",label:"Other",color:"#fbbf24"}
+  ];
+  ss(SK_DROPS,{});
+  ss(SK_CFG_R,CLEAN_REFRACTS);
+  ss(SK_CFG_S,CLEAN_SHIKARI);
+  ss(SK_ACCTS,CLEAN_ACCTS);
+  ss(SK_TYPES,CLEAN_TYPES);
+  ss(SK_PRESETS,[]);
+  ss(SK_SERVER_PRESETS,[]);
+  ss(SK_DEFAULTS,{tasks:3000});
+  ss(SK_TEMPLATES,{});
+  localStorage.removeItem(SK_UI);
+  showToast("Reset complete — reloading...");
+  setTimeout(()=>location.reload(),800);
+}
+
+/* ── INIT ── */
+refracts=ls(SK_CFG_R,DEF_REFRACTS);
+shikaris=ls(SK_CFG_S,DEF_SHIKARI);
+acctGroups=ls(SK_ACCTS,DEF_ACCTS);
+acctTypes=ls(SK_TYPES,DEF_TYPES);
+proxyPresets=ls(SK_PRESETS,EX_PRESETS);
+serverPresets=ls(SK_SERVER_PRESETS,[]);
+defaults=ls(SK_DEFAULTS,{tasks:3000});
+templates=ls(SK_TEMPLATES,{});
+uiState=ls(SK_UI,{hideUnused:false,collapsed:{refract:false,shikari:false,proxyPresets:false,serverPresets:false},timelineView:"drop"});
+
+initData();renderAll();renderHistory();renderAccounts();renderTags();renderProxyPresets();renderProxyDatalist();renderServerPresets();renderServerDatalist();renderTemplates();applyCollapse();applyPresetCollapse();
+document.getElementById("hideUnusedToggle").checked=uiState.hideUnused;
+document.getElementById("defaultTasks").value=defaults.tasks||3000;
+applyHideUnused();
+document.getElementById("dropDate").value=new Date().toISOString().split("T")[0];
+</script>
+</body>
+</html>
